@@ -5,8 +5,7 @@ using REPL
 using REPL: LineEdit
 using TestEnv
 
-export find_related_testfile
-
+# Fetch the current package name given the active project.
 current_pkg() = basename(dirname(Base.active_project()))
 current_pkg_dir() = dirname(Base.active_project())
 
@@ -35,11 +34,14 @@ function find_related_testfile(str::AbstractString)
     return joinpath(test_dir, file)
 end
 
+"Run fzf with the given input and if the file is a valid one run the test with the Test environment."
 function find_and_run_test_file(query::AbstractString)
     pkg = current_pkg()
     file = find_related_testfile(query)
     if isempty(file)
-        @info "Could not find any file with query $query"
+        @error"Could not find any file with query $query"
+    elseif !isfile(file)
+        @error "File $(file) could not be found, this sounds like a bug, please report it on https://github.com/theogf/TestPicker.jl/issues/new."
     else
         run_test_file(file, pkg)
     end
@@ -55,6 +57,7 @@ end
 include("repl.jl")
 
 function __init__()
+    # Add the REPL mode to the current active REPL.
     if isdefined(Base, :active_repl)
         init_test_repl_mode(Base.active_repl)
     else
@@ -63,7 +66,6 @@ function __init__()
                 if !isdefined(repl, :interface)
                     repl.interface = REPL.setup_interface(repl)
                 end
-
                 init_test_repl_mode(repl)
             end
         end
