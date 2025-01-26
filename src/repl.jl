@@ -71,9 +71,7 @@ function create_test_repl_mode(repl::AbstractREPL, main::LineEdit.Prompt)
     # We want to support all the default keymap prefixes.
     mk = REPL.mode_keymap(main)
 
-    test_mode_keymaps = Dict{Any,Any}[
-        mk, LineEdit.history_keymap, LineEdit.default_keymap, LineEdit.escape_defaults
-    ]
+    test_mode_keymaps = Dict{Any,Any}[mk, LineEdit.default_keymap, LineEdit.escape_defaults]
 
     test_mode.keymap_dict = LineEdit.keymap(test_mode_keymaps)
 
