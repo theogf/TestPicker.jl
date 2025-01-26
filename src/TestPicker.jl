@@ -31,7 +31,12 @@ function find_related_testfile(str::AbstractString)
             ),
         )
     end
-    return joinpath(test_dir, file)
+    if isempty(file)
+        @debug "Could not find any file with query $str"
+        file
+    else
+        joinpath(test_dir, file)
+    end
 end
 
 "Run fzf with the given input and if the file is a valid one run the test with the Test environment."
@@ -39,7 +44,6 @@ function find_and_run_test_file(query::AbstractString)
     pkg = current_pkg()
     file = find_related_testfile(query)
     if isempty(file)
-        @error"Could not find any file with query $query"
     elseif !isfile(file)
         @error "File $(file) could not be found, this sounds like a bug, please report it on https://github.com/theogf/TestPicker.jl/issues/new."
     else
