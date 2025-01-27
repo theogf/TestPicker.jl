@@ -18,7 +18,7 @@ function init_test_repl_mode(repl::AbstractREPL)
     # Assign `test_trigger` as the key map to switch to pager mode.
     keymap = Dict{Any,Any}(
         test_trigger => function (s, args...)
-            # We must only switch to pager mode if `%` is typed at the beginning
+            # We must only switch to pager mode if `!` is typed at the beginning
             # of the line.
             if isempty(s) || position(LineEdit.buffer(s)) == 0
                 buf = copy(LineEdit.buffer(s))
@@ -55,9 +55,9 @@ function create_test_repl_mode(repl::AbstractREPL, main::LineEdit.Prompt)
 
         # Process the input command inside the pager mode.
         try
-            test_mode_do_cmd(input)
+            test_mode_do_cmd(repl, input)
         catch e
-            @error "Could not complete test picker action due to error $e"
+            @error "Could not complete test picker action due to error $e\n$(current_exceptions()))"
         end
         REPL.prepare_next(repl)
         REPL.reset_state(s)
@@ -78,15 +78,32 @@ function create_test_repl_mode(repl::AbstractREPL, main::LineEdit.Prompt)
     return test_mode
 end
 
+@enum TestType TestFile TestSet Unmatched
+
+function identify_query(input::String)
+    m = match(r"(.*):(.*)", input)
+    if !isnothing(m)
+        TestSet, Tuple(m.captures)
+    else
+        TestFile, (input, "")
+    end
+end
+
 # Execute the actions when a command has been received in the REPL mode `test`. `repl`
 # must be the active REPL, and `input` is a string with the command.
-function test_mode_do_cmd(input::String)
+function test_mode_do_cmd(repl::AbstractREPL, input::String)
     if !isinteractive() && !PRINTED_REPL_WARNING[]
         @warn "The test mode is intended for interaction use only, and cannot not be used from scripts."
         PRINTED_REPL_WARNING[] = true
     end
 
-    find_and_run_test_file(input)
+    test_type, inputs = identify_query(input)
+
+    if test_type == TestFile
+        find_and_run_test_file(first(inputs))
+    elseif test_type == TestSet
+        select_testset(inputs...)
+    end
 
     return nothing
 end

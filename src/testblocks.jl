@@ -10,7 +10,7 @@ function get_all_nodes(file::AbstractString)
     return meta_nodes, testsets
 end
 
-function select_testset(file::AbstractString)
+function select_testset(file::AbstractString, query::AbstractString)
     meta, testsets = get_all_nodes(file)
     stringified_tests = map(testsets) do node
         name = JuliaSyntax.sourcetext(JuliaSyntax.children(node)[2])
@@ -25,7 +25,7 @@ function select_testset(file::AbstractString)
         chomp(
             read(
                 pipeline(
-                    Cmd(`$(exe)`; ignorestatus=true);
+                    Cmd(`$(exe) --query $(query)`; ignorestatus=true);
                     stdin=IOBuffer(join(stringified_tests, '\n')),
                 ),
                 String,
@@ -34,6 +34,9 @@ function select_testset(file::AbstractString)
     end
     if !isempty(choice)
         push!(ex.args, Expr(test_mapper[choice]))
-        Base.eval(Main, ex)
+        pkg = current_pkg()
+        TestEnv.activate(pkg) do
+            Base.eval(Main, ex)
+        end
     end
 end
