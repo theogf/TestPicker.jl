@@ -97,7 +97,9 @@ function test_mode_do_cmd(repl::AbstractREPL, input::String)
         PRINTED_REPL_WARNING[] = true
     end
 
-    @show test_type, inputs = identify_query(input)
+    test_type, inputs = identify_query(input)
+
+    @debug "Running $(test_type) with inputs $(inputs...)"
 
     if test_type == TestFile
         find_and_run_test_file(first(inputs))
