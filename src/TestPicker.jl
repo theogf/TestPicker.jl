@@ -3,7 +3,11 @@ module TestPicker
 using fzf_jll: fzf
 using REPL
 using REPL: LineEdit
+using JuliaSyntax
 using TestEnv
+
+include("repl.jl")
+include("testblocks.jl")
 
 # Fetch the current package name given the active project.
 current_pkg() = basename(dirname(Base.active_project()))
@@ -57,8 +61,6 @@ function run_test_file(file::AbstractString, pkg)
         Base.include(Main, file)
     end
 end
-
-include("repl.jl")
 
 function __init__()
     # Add the REPL mode to the current active REPL.
