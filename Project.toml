@@ -6,6 +6,7 @@ version = "0.1.0"
 [deps]
 JuliaSyntax = "70703baa-626e-46a2-a12c-08ffd08c73b4"
 REPL = "3fa0cd96-eef1-5676-8a61-b3b8758bbffb"
+SafeTestsets = "1bc83da4-3b8d-516f-aca4-4fe02f6d838f"
 TestEnv = "1e6cf692-eddd-4d53-88a5-2d735e33781b"
 fzf_jll = "214eeab7-80f7-51ab-84ad-2988db7cef09"
 
