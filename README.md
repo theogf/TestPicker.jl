@@ -30,3 +30,8 @@ which will get you a fuzzy search, press enter and the file will be run under th
 ```
 
 Make sure that your environment is set to use the package you are testing.
+
+
+### Misc
+
+- [A great blog post](https://erik-engheim.medium.com/exploring-julia-repl-internals-6b19667a7a62) on Julia REPL mechanics
