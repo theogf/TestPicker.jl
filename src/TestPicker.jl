@@ -5,33 +5,15 @@ using REPL
 using REPL: LineEdit
 using JuliaSyntax
 using TestEnv
+using Test
 
-include("file_testing.jl")
 include("repl.jl")
-include("testblocks.jl")
+include("testfile.jl")
+include("testblock.jl")
 
 # Fetch the current package name given the active project.
-current_pkg() = basename(dirname(Base.active_project()))
 current_pkg_dir() = dirname(Base.active_project())
-
-"Run fzf with the given input and if the file is a valid one run the test with the Test environment."
-function find_and_run_test_file(query::AbstractString)
-    pkg = current_pkg()
-    file = find_related_testfile(query)
-    if isempty(file)
-    elseif !isfile(file)
-        @error "File $(file) could not be found, this sounds like a bug, please report it on https://github.com/theogf/TestPicker.jl/issues/new."
-    else
-        run_test_file(file, pkg)
-    end
-end
-
-function run_test_file(file::AbstractString, pkg)
-    @info "Executing test file $(file)"
-    TestEnv.activate(pkg) do
-        Base.include(Main, file)
-    end
-end
+current_pkg() = basename(current_pkg_dir())
 
 function __init__()
     # Add the REPL mode to the current active REPL.
@@ -47,6 +29,18 @@ function __init__()
             end
         end
     end
+end
+
+function eval_in_module(ex::Expr, pkg::AbstractString)
+    mod = gensym(pkg)
+    module_ex = Expr(:toplevel, :(module $mod
+        using TestEnv, Test
+        TestEnv.activate($pkg) do
+            $(ex)
+        end
+    end))
+    push!(module_ex.args, :(nothing))
+    return Core.eval(Main, module_ex)
 end
 
 end

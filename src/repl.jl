@@ -57,7 +57,8 @@ function create_test_repl_mode(repl::AbstractREPL, main::LineEdit.Prompt)
         try
             test_mode_do_cmd(repl, input)
         catch e
-            @error "Could not complete test picker action due to error $e\n$(current_exceptions()))"
+            e isa TestsetException ||
+                @error "Could not complete test picker action due to error:\n$(current_exceptions()))"
         end
         REPL.prepare_next(repl)
         REPL.reset_state(s)
@@ -104,7 +105,7 @@ function test_mode_do_cmd(repl::AbstractREPL, input::String)
     if test_type == TestFile
         find_and_run_test_file(first(inputs))
     elseif test_type == TestSet
-        select_testset(inputs...)
+        select_and_run_testset(inputs...)
     end
 
     return nothing

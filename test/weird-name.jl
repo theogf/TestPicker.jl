@@ -1,5 +1,5 @@
 using Test
 
-@testest "Another name" begin
+@testset "Another name" begin
     @test true
 end

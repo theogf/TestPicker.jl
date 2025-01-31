@@ -1,3 +1,4 @@
+"Check whether the given `SyntaxNode` is a `@testset` macro block"
 function is_testset(node::SyntaxNode)
     return !isempty(JuliaSyntax.children(node)) &&
            Expr(first(JuliaSyntax.children(node))) == Symbol("@testset")
@@ -11,7 +12,7 @@ function get_all_nodes(file::AbstractString)
     return meta_nodes, testsets
 end
 
-function select_testset(fuzzy_file::AbstractString, query::AbstractString)
+function select_and_run_testset(fuzzy_file::AbstractString, query::AbstractString)
     root, test_files = get_test_files()
     matched_files = fzf() do exe
         readlines(
@@ -36,7 +37,7 @@ function select_testset(fuzzy_file::AbstractString, query::AbstractString)
     end
     tabled_keys = Dict(
         map(collect(keys(full_map))) do (name, file, line)
-            "$(rpad(name, max_name + 2)) | $(lpad(file, max_file: 2)):$(line)"
+            "$(rpad(name, max_name + 2)) | $(lpad(file, max_file + 2)):$(line)"
         end .=> keys(full_map),
     )
 
@@ -51,16 +52,14 @@ function select_testset(fuzzy_file::AbstractString, query::AbstractString)
             ),
         )
     end
-
     if !isempty(choice)
         testset, meta = full_map[tabled_keys[choice]]
-        ex = Expr(:toplevel)
+        ex = Expr(:block)
         init = Expr.(meta)
         append!(ex.args, init)
         push!(ex.args, Expr(testset))
         pkg = current_pkg()
-        TestEnv.activate(pkg) do
-            Base.eval(Main, ex)
-        end
+        @show ex
+        eval_in_module(ex, pkg)
     end
 end
