@@ -34,8 +34,7 @@ end
 function eval_in_module(ex::Expr, pkg::AbstractString)
     mod = gensym(pkg)
     module_ex = Expr(:toplevel, :(module $mod
-        using TestEnv, Test
-        TestEnv.activate($pkg) do
+        TestPicker.TestEnv.activate($pkg) do
             $(ex)
         end
     end))
