@@ -7,9 +7,9 @@ end
 function get_all_nodes(file::AbstractString)
     root = parseall(SyntaxNode, read(file, String); filename=file)
     top_nodes = JuliaSyntax.children(root)
-    meta_nodes = filter(!is_testset, top_nodes)
+    preamble_nodes = filter(!is_testset, top_nodes)
     testsets = filter(is_testset, top_nodes)
-    return meta_nodes, testsets
+    return preamble_nodes, testsets
 end
 
 function select_and_run_testset(fuzzy_file::AbstractString, query::AbstractString)
@@ -58,8 +58,7 @@ function select_and_run_testset(fuzzy_file::AbstractString, query::AbstractStrin
         init = Expr.(meta)
         append!(ex.args, init)
         push!(ex.args, Expr(testset))
-        pkg = current_pkg()
-        @show ex
+        pkg = current_pkg_name()
         eval_in_module(ex, pkg)
     end
 end
