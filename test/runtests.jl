@@ -1,15 +1,18 @@
-using TestPicker
-using Test
-using TerminalRegressionTests
+using SafeTestsets
 
-@testset "TestPicker.jl" begin
-    mktemp() do file, _
-        TerminalRegressionTests.automated_test(file, ["! testa", ""]) do term
-        end
-    end
+@safetestset "eval" begin
+    include("eval.jl")
+end
+@safetestset "testfile" begin
+    include("testfile.jl")
+end
+@safetestset "testblock" begin
+    include("testblock.jl")
+end
+@safetestset "repl" begin
+    include("repl.jl")
 end
 
 @testset "Second test" begin
-    @testset "Inner test" begin
-    end
+    @testset "Inner test" begin end
 end
