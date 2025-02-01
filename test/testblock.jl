@@ -1,5 +1,6 @@
 using Test
 using JuliaSyntax
+using TestPicker
 
 @testset "Testset node detection" begin
     s = """
