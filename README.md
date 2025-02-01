@@ -100,3 +100,5 @@ All selection will be run inside a module, in a similar fashion to [`SafeTestset
 ## Misc
 
 - [A great blog post](https://erik-engheim.medium.com/exploring-julia-repl-internals-6b19667a7a62) on Julia REPL mechanics
+- [TestItemRunner.jl](https://github.com/julia-vscode/TestItemRunner.jl) a package that work in vscode to run its own `@testitem` tests.
+- [ReTest.jl](https://github.com/JuliaTesting/ReTest.jl) a testing framework that also let you filter testsets.
