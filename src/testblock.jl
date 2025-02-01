@@ -4,7 +4,8 @@ function is_testset(node::SyntaxNode)
            Expr(first(JuliaSyntax.children(node))) == Symbol("@testset")
 end
 
-function get_all_nodes(file::AbstractString)
+"Fetch all the top nodes from `file` and split them between a `preamble` and `testsets`."
+function get_preamble_testsets(file::AbstractString)
     root = parseall(SyntaxNode, read(file, String); filename=file)
     top_nodes = JuliaSyntax.children(root)
     preamble_nodes = filter(!is_testset, top_nodes)
@@ -12,8 +13,10 @@ function get_all_nodes(file::AbstractString)
     return preamble_nodes, testsets
 end
 
+"Given a `fuzzy_file` query and a testset `query` return all possible testset that match both the file and the testset names, provide a choice and execute it."
 function select_and_run_testset(fuzzy_file::AbstractString, query::AbstractString)
     root, test_files = get_test_files()
+    # We fetch all valid test files.
     matched_files = fzf() do exe
         readlines(
             pipeline(
@@ -24,23 +27,27 @@ function select_and_run_testset(fuzzy_file::AbstractString, query::AbstractStrin
     end
     max_name = 0
     max_file = 0
+    # We create  the collection of testsets based on the list of files.
     full_map = mapreduce(merge, matched_files) do file
+        # Keep track of file name length for padding.
         max_file = max(max_file, length(file))
-        meta, testsets = get_all_nodes(joinpath(root, file))
-        stringified_tests = map(testsets) do node
+        preamble, testsets = get_preamble_testsets(joinpath(root, file))
+        name_file_line = map(testsets) do node
             name = JuliaSyntax.sourcetext(JuliaSyntax.children(node)[2])
             line, _ = JuliaSyntax.source_location(node.source, node.position)
             max_name = max(max_name, length(name))
             name, file, line
         end
-        Dict(stringified_tests .=> (testsets .=> Ref(meta)))
+        Dict(name_file_line .=> (testsets .=> Ref(preamble)))
     end
+    # We create a new mapping with human readable lines.
     tabled_keys = Dict(
         map(collect(keys(full_map))) do (name, file, line)
             "$(rpad(name, max_name + 2)) | $(lpad(file, max_file + 2)):$(line)"
         end .=> keys(full_map),
     )
 
+    # Leave the user the choice of a testset.
     choice = fzf() do exe
         chomp(
             read(
@@ -53,12 +60,12 @@ function select_and_run_testset(fuzzy_file::AbstractString, query::AbstractStrin
         )
     end
     if !isempty(choice)
-        testset, meta = full_map[tabled_keys[choice]]
-        ex = Expr(:block)
-        init = Expr.(meta)
-        append!(ex.args, init)
-        push!(ex.args, Expr(testset))
+        name_file_line = tabled_keys[choice]
+        testset, preamble = full_map[name_file_line]
+        ex = Expr(:block, Expr.(preamble)..., Expr(testset))
         pkg = current_pkg_name()
+        name, file, line = name_file_line
+        @info "Executing testset $(name) from $(file):$(line)"
         eval_in_module(ex, pkg)
     end
 end
