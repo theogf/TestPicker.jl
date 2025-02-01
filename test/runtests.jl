@@ -12,7 +12,3 @@ end
 @safetestset "repl" begin
     include("repl.jl")
 end
-
-@testset "Second test" begin
-    @testset "Inner test" begin end
-end
