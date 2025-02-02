@@ -13,6 +13,25 @@ function get_preamble_testsets(file::AbstractString)
     return preamble_nodes, testsets
 end
 
+function build_preview_cmd(rg::String)
+    if !isempty(Sys.which("bat"))
+        [
+            "--preview",
+            "\$(echo {} | $rg \"\\|\\s+(.*):(\\d*)-(\\d*)\" -or \'bat --color=always --line-range=\$2:\$3 \$1\')",
+        ]
+    else
+        ["", ""]
+    end
+end
+
+function last_leaf(node)
+    if isempty(JuliaSyntax.children(node))
+        node
+    else
+        last_leaf(last(JuliaSyntax.children(node)))
+    end
+end
+
 "Given a `fuzzy_file` query and a testset `query` return all possible testset that match both the file and the testset names, provide a choice and execute it."
 function select_and_run_testset(fuzzy_file::AbstractString, query::AbstractString)
     root, test_files = get_test_files()
@@ -34,30 +53,39 @@ function select_and_run_testset(fuzzy_file::AbstractString, query::AbstractStrin
         preamble, testsets = get_preamble_testsets(joinpath(root, file))
         name_file_line = map(testsets) do node
             name = JuliaSyntax.sourcetext(JuliaSyntax.children(node)[2])
-            line, _ = JuliaSyntax.source_location(node.source, node.position)
+            line_start, _ = JuliaSyntax.source_location(node.source, node.position)
+            line_end, _ = JuliaSyntax.source_location(node.source, last_leaf(node).position)
             max_name = max(max_name, length(name))
-            name, file, line
+            name, file, line_start, line_end + 1
         end
         Dict(name_file_line .=> (testsets .=> Ref(preamble)))
     end
     # We create a new mapping with human readable lines.
     tabled_keys = Dict(
-        map(collect(keys(full_map))) do (name, file, line)
-            "$(rpad(name, max_name + 2)) | $(lpad(file, max_file + 2)):$(line)"
+        map(collect(keys(full_map))) do (name, file, line_start, line_end)
+            "$(rpad(name, max_name + 2)) | $(lpad(file, max_file + 2)):$(line_start)-$(line_end)"
         end .=> keys(full_map),
     )
 
+    # preview_cmd = "$(get_display_block_cmd()) $(root)/{-1}"
     # Leave the user the choice of a testset.
-    choice = fzf() do exe
-        chomp(
-            read(
-                pipeline(
-                    Cmd(`$(exe) --query $(query)`; ignorestatus=true);
-                    stdin=IOBuffer(join(keys(tabled_keys), '\n')),
+    choice = rg() do rg_exe
+        fzf() do fzf_exe
+            preview_cmd = build_preview_cmd(rg_exe)
+            cmd = Cmd(String[fzf_exe, preview_cmd..., "--query", query])
+            chomp(
+                read(
+                    pipeline(
+                        addenv(
+                            Cmd(cmd; ignorestatus=true, dir=root),
+                            "SHELL" => Sys.which("bash"),
+                        );
+                        stdin=IOBuffer(join(keys(tabled_keys), '\n')),
+                    ),
+                    String,
                 ),
-                String,
-            ),
-        )
+            )
+        end
     end
     if !isempty(choice)
         name_file_line = tabled_keys[choice]

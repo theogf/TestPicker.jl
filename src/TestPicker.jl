@@ -1,6 +1,7 @@
 module TestPicker
 
 using fzf_jll: fzf
+using ripgrep_jll: rg
 using REPL
 using REPL: LineEdit
 using JuliaSyntax
