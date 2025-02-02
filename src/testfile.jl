@@ -1,10 +1,10 @@
-function get_display_file_cmd()
+function get_display_file_preview_cmd()
     if !isempty(Sys.which("bat"))
-        "bat --color=always --style=numbers"
-    elseif !isempty(Sys.which("cat"))
-        "cat"
+        ["--preview", "bat --color=always --style=numbers {-1}"]
+    elseif !isempty(Sys.which("cat {-1}"))
+        ["--preview", "cat"]
     else
-        nothing
+        ["", ""]
     end
 end
 
@@ -12,15 +12,14 @@ end
 function find_related_testfile(query::AbstractString)
     root, files = get_test_files()
     # Run fzf to get a relevant file.
-    display_file_cmd = get_display_file_cmd()
-    preview_cmd = "$(get_display_file_cmd()) $(root)/{-1}"
-    files = fzf() do exe
-        cmd = if isnothing(display_file_cmd)
-            `$(exe) --m --query $(query)`
-        else
-            `$(exe) --preview $(preview_cmd) -m --query $(query)`
-        end
-        readlines(pipeline(Cmd(cmd; ignorestatus=true); stdin=IOBuffer(join(files, '\n'))))
+    preview_cmd = get_display_file_preview_cmd()
+    files = fzf() do fzf_exe
+        cmd = Cmd(String[fzf_exe, preview_cmd..., "-m", "--query", query])
+        readlines(
+            pipeline(
+                Cmd(cmd; ignorestatus=true, dir=root); stdin=IOBuffer(join(files, '\n'))
+            ),
+        )
     end
     if isempty(files)
         @debug "Could not find any files with query $query"
