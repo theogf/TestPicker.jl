@@ -41,7 +41,7 @@ function create_test_repl_mode(repl::AbstractREPL, main::LineEdit.Prompt)
     test_mode = LineEdit.Prompt(
         test_mode_prompt;
         complete=REPL.REPLCompletionProvider(),
-        prompt_prefix=repl.options.hascolor ? Base.text_colors[:white] : "",
+        prompt_prefix=repl.options.hascolor ? Base.text_colors[:magenta] : "",
         prompt_suffix="",
         sticky=true,
     )
