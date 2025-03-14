@@ -37,7 +37,10 @@ the collection of test files as paths relative to it.
 """
 function get_test_files()
     pkg = current_pkg_name()
-    test_dir = get_test_dir(ctx_and_pkgspec(pkg)...)
+    pkgspec = deepcopy(PackageSpec(pkg))
+    ctx = Context()
+    isinstalled!(ctx, pkgspec) || throw(ArgumentError("$pkg not installed 👻"))
+    test_dir = get_test_dir(ctx, pkgspec)
     isdir(test_dir) || error(
         "the test directory $(test_dir) does not exist, you need to activate your package environment first",
     )
