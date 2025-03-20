@@ -5,7 +5,7 @@ function is_testset(node::SyntaxNode)
 end
 
 "Fetch all the top nodes from `file` and split them between a `preamble` and `testsets`."
-function get_preamble_testsets(file::AbstractString)
+function get_preamble_and_testsets(file::AbstractString)
     root = parseall(SyntaxNode, read(file, String); filename=file)
     top_nodes = JuliaSyntax.children(root)
     preamble_nodes = filter(!is_testset, top_nodes)
@@ -50,7 +50,7 @@ function select_and_run_testset(fuzzy_file::AbstractString, query::AbstractStrin
     full_map = mapreduce(merge, matched_files) do file
         # Keep track of file name length for padding.
         max_file = max(max_file, length(file))
-        preamble, testsets = get_preamble_testsets(joinpath(root, file))
+        preamble, testsets = get_preamble_and_testsets(joinpath(root, file))
         name_file_line = map(testsets) do node
             name = JuliaSyntax.sourcetext(JuliaSyntax.children(node)[2])
             line_start, _ = JuliaSyntax.source_location(node.source, node.position)
