@@ -1,5 +1,6 @@
 module TestPicker
 
+using bat_jll: bat
 using fzf_jll: fzf
 using ripgrep_jll: rg
 using REPL
