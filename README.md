@@ -97,6 +97,15 @@ s-
 All selection will be run inside a module, in a similar fashion to [`SafeTestsets.jl`]().
 -Before running any selection, [`TestEnv.jl`]() `activate()` is us to mimick the `Pkg.test()` behaviour. The original environment is restored afterwards, regardless of the outcome.
 
+## Known issues
+
+Syntax highlighting is achieved by running `bat` within `fzf`, however
+[the signals needed to detect light/dark terminal background osc10/osc11 don't work in this case](https://github.com/junegunn/fzf/issues/4317).
+This means some characters may have too low contrast against the background to be readable.
+
+The current workaround is to set a theme manually using the `BAT_THEME` environment
+variable e.g. add `export BAT_THEME=GitHub` to your `~/.bashrc` 
+
 ## Misc
 
 - [A great blog post](https://erik-engheim.medium.com/exploring-julia-repl-internals-6b19667a7a62) on Julia REPL mechanics
