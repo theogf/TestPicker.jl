@@ -13,15 +13,8 @@ function get_preamble_testsets(file::AbstractString)
     return preamble_nodes, testsets
 end
 
-function build_preview_cmd(rg::String)
-    if !isempty(Sys.which("bat"))
-        [
-            "--preview",
-            "\$(echo {} | $rg \"\\|\\s+(.*):(\\d*)-(\\d*)\" -or \'bat --color=always --line-range=\$2:\$3 \$1\')",
-        ]
-    else
-        ["", ""]
-    end
+function build_preview_arg(rg::String, bat::String)
+    return "\$(echo {} | $rg \"\\|\\s+(.*):(\\d*)-(\\d*)\" -or \'$bat --color=always --line-range=\$2:\$3 \$1\')"
 end
 
 function last_leaf(node)
@@ -71,20 +64,27 @@ function select_and_run_testset(fuzzy_file::AbstractString, query::AbstractStrin
     # Leave the user the choice of a testset.
     choice = rg() do rg_exe
         fzf() do fzf_exe
-            preview_cmd = build_preview_cmd(rg_exe)
-            cmd = Cmd(String[fzf_exe, preview_cmd..., "--query", query])
-            chomp(
-                read(
-                    pipeline(
-                        addenv(
-                            Cmd(cmd; ignorestatus=true, dir=root),
-                            "SHELL" => Sys.which("bash"),
-                        );
-                        stdin=IOBuffer(join(keys(tabled_keys), '\n')),
+            bat() do bat_exe
+                cmd = Cmd(String[
+                    fzf_exe,
+                    "--preview",
+                    build_preview_arg(rg_exe, bat_exe),
+                    "--query",
+                    query
+                ])
+                chomp(
+                    read(
+                        pipeline(
+                            addenv(
+                                Cmd(cmd; ignorestatus=true, dir=root),
+                                "SHELL" => Sys.which("bash"),
+                            );
+                            stdin=IOBuffer(join(keys(tabled_keys), '\n')),
+                        ),
+                        String,
                     ),
-                    String,
-                ),
-            )
+                )
+            end
         end
     end
     if !isempty(choice)

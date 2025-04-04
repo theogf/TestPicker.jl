@@ -1,25 +1,24 @@
-function get_display_file_preview_cmd()
-    if !isempty(Sys.which("bat"))
-        ["--preview", "bat --color=always --style=numbers {-1}"]
-    elseif !isempty(Sys.which("cat {-1}"))
-        ["--preview", "cat"]
-    else
-        ["", ""]
-    end
-end
-
 "Find all test files that are close to `query`."
 function find_related_testfile(query::AbstractString)
     root, files = get_test_files()
     # Run fzf to get a relevant file.
-    preview_cmd = get_display_file_preview_cmd()
+    preview_cmd = []
     files = fzf() do fzf_exe
-        cmd = Cmd(String[fzf_exe, preview_cmd..., "-m", "--query", query])
-        readlines(
-            pipeline(
-                Cmd(cmd; ignorestatus=true, dir=root); stdin=IOBuffer(join(files, '\n'))
-            ),
-        )
+        bat() do bat_exe
+            cmd = Cmd(String[
+                fzf_exe,
+                "--preview",
+                "$(bat_exe) --color=always --style=numbers {-1}",
+                "-m",
+                "--query",
+                query
+            ])
+            readlines(
+                pipeline(
+                    Cmd(cmd; ignorestatus=true, dir=root); stdin=IOBuffer(join(files, '\n'))
+                ),
+            )
+        end
     end
     if isempty(files)
         @debug "Could not find any files with query $query"
