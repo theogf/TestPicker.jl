@@ -13,13 +13,8 @@ function get_preamble_testsets(file::AbstractString)
     return preamble_nodes, testsets
 end
 
-function build_preview_cmd(rg::String)
-    if !isempty(Sys.which("bat"))
-        [
-        ]
-    else
-        ["", ""]
-    end
+function build_preview_arg(rg::String, bat::String)
+    return "\$(echo {} | $rg \"\\|\\s+(.*):(\\d*)-(\\d*)\" -or \'$bat --color=always --line-range=\$2:\$3 \$1\')"
 end
 
 function last_leaf(node)
@@ -73,7 +68,7 @@ function select_and_run_testset(fuzzy_file::AbstractString, query::AbstractStrin
                 cmd = Cmd(String[
                     fzf_exe,
                     "--preview",
-                    "\$(echo {} | $rg_exe \"\\|\\s+(.*):(\\d*)-(\\d*)\" -or \'$bat_exe --color=always --line-range=\$2:\$3 \$1\')",
+                    build_preview_arg(rg_exe, bat_exe),
                     "--query",
                     query
                 ])
