@@ -7,12 +7,15 @@ using REPL
 using REPL: LineEdit
 using JuliaSyntax
 using TestEnv
-using TestEnv: current_pkg_name, get_test_dir, isinstalled!
+using TestEnv: TestEnvError, get_test_dir, isinstalled!
 using Pkg
 using Pkg: PackageSpec
 using Pkg.Types: Context
 using Test
 
+export clear_testenv_cache
+
+include("common.jl")
 include("eval.jl")
 include("testfile.jl")
 include("testblock.jl")
