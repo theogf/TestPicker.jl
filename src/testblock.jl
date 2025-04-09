@@ -65,13 +65,15 @@ function select_and_run_testset(fuzzy_file::AbstractString, query::AbstractStrin
     choice = rg() do rg_exe
         fzf() do fzf_exe
             bat() do bat_exe
-                cmd = Cmd(String[
-                    fzf_exe,
-                    "--preview",
-                    build_preview_arg(rg_exe, bat_exe),
-                    "--query",
-                    query
-                ])
+                cmd = Cmd(
+                    String[
+                        fzf_exe,
+                        "--preview",
+                        build_preview_arg(rg_exe, bat_exe),
+                        "--query",
+                        query,
+                    ],
+                )
                 chomp(
                     read(
                         pipeline(
@@ -91,7 +93,7 @@ function select_and_run_testset(fuzzy_file::AbstractString, query::AbstractStrin
         name_file_line = tabled_keys[choice]
         testset, preamble = full_map[name_file_line]
         ex = Expr(:block, Expr.(preamble)..., Expr(testset))
-        pkg = current_pkg_name()
+        pkg = current_pkg()
         name, file, line = name_file_line
         @info "Executing testset $(name) from $(file):$(line)"
         eval_in_module(ex, pkg)
