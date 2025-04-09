@@ -31,9 +31,11 @@ function eval_in_module(ex::Expr, pkg::PackageSpec)
     env_return = quote
         Pkg.activate($(pkg.path); io=devnull)
     end
-    try
-        Core.eval(Main, top_ex)
-    finally
-        Core.eval(Main, env_return)
+    withenv("JULIA_PKG_PRECOMPILE_AUTO" => 0) do
+        try
+            Core.eval(Main, top_ex)
+        finally
+            Core.eval(Main, env_return)
+        end
     end
 end
