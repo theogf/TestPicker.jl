@@ -95,7 +95,8 @@ function select_and_run_testset(fuzzy_file::AbstractString, query::AbstractStrin
         ex = Expr(:block, Expr.(preamble)..., Expr(testset))
         pkg = current_pkg()
         name, file, line = name_file_line
-        @info "Executing testset $(name) from $(file):$(line)"
-        eval_in_module(ex, pkg)
+        test = TestInfo(ex, file, name, line)
+        LATEST_EVAL[] = [test]
+        eval_in_module(test, pkg)
     end
 end
