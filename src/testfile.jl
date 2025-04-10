@@ -56,6 +56,7 @@ end
 function find_and_run_test_file(query::AbstractString)
     pkg = current_pkg()
     files = find_related_testfile(query)
+    LATEST_EVAL[] = TestInfo[]
     for file in files
         if isempty(file)
         elseif !isfile(file)
@@ -67,11 +68,11 @@ function find_and_run_test_file(query::AbstractString)
 end
 
 function run_test_file(file::AbstractString, pkg::PackageSpec)
-    @info "Executing test file $(file)"
-
     testset_name = "$(pkg.name) - $(file)"
     ex = :(@testset $testset_name begin
         include($file)
     end)
-    return eval_in_module(ex, pkg)
+    test = TestInfo(ex, file, "", 0)
+    push!(LATEST_EVAL[], test)
+    return eval_in_module(test, pkg)
 end
