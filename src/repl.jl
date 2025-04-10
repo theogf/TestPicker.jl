@@ -70,13 +70,21 @@ function create_test_repl_mode(repl::AbstractREPL, main::LineEdit.Prompt)
     hp.mode_mapping[:test] = test_mode
     test_mode.hist = hp
 
+    _, skeymap = LineEdit.setup_search_keymap(hp)
+    _, prefix_keymap = LineEdit.setup_prefix_keymap(hp, test_mode)
+
     # Check if the expression is incomplete, and, if so, request for another line.
     test_mode.on_enter = REPL.return_callback
     # We want to support all the default keymap prefixes.
     mk = REPL.mode_keymap(main)
 
     test_mode_keymaps = Dict{Any,Any}[
-        mk, LineEdit.history_keymap, LineEdit.default_keymap, LineEdit.escape_defaults
+        skeymap,
+        mk,
+        prefix_keymap,
+        LineEdit.history_keymap,
+        LineEdit.default_keymap,
+        LineEdit.escape_defaults,
     ]
 
     test_mode.keymap_dict = LineEdit.keymap(test_mode_keymaps)
