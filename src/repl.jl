@@ -92,23 +92,31 @@ function create_test_repl_mode(repl::AbstractREPL, main::LineEdit.Prompt)
     return test_mode
 end
 
-@enum TestType TestFile TestSet Unmatched
+@enum TestType TestFile TestSet LatestEval Unmatched
 
 function identify_query(input::String)
-    m = match(r"(.*):(.*)", input)
-    if !isnothing(m)
-        TestSet, Tuple(m.captures)
+    if strip(input) == "-"
+        if isnothing(LATEST_EVAL[])
+            @error "No test evaluated yet (reset with every session)."
+            Unmatched, ()
+        else
+            LatestEval, LATEST_EVAL[]
+        end
     else
-        TestFile, (input, "")
+        m = match(r"(.*):(.*)", input)
+        if !isnothing(m)
+            TestSet, Tuple(m.captures)
+        else
+            TestFile, (input, "")
+        end
     end
 end
 
 # Execute the actions when a command has been received in the REPL mode `test`. `repl`
 # must be the active REPL, and `input` is a string with the command.
 function test_mode_do_cmd(repl::AbstractREPL, input::String)
-    if !isinteractive() && !PRINTED_REPL_WARNING[]
+    if !isinteractive() && get(ENV, "PRINT_REPL_WARNING", true)
         @warn "The test mode is intended for interaction use only, and cannot not be used from scripts."
-        PRINTED_REPL_WARNING[] = true
     end
 
     test_type, inputs = identify_query(input)
@@ -119,6 +127,10 @@ function test_mode_do_cmd(repl::AbstractREPL, input::String)
         find_and_run_test_file(first(inputs))
     elseif test_type == TestSet
         select_and_run_testset(inputs...)
+    elseif test_type == LatestEval
+        for expr in inputs
+            eval_in_module(expr, current_pkg())
+        end
     end
 
     return nothing

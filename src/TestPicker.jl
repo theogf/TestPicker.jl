@@ -15,6 +15,15 @@ using Test
 
 export clear_testenv_cache
 
+struct TestInfo
+    ex::Expr
+    filename::String
+    testset::String
+    line::Int
+end
+
+const LATEST_EVAL = Ref{Union{Nothing,Vector{TestInfo}}}(nothing)
+
 include("common.jl")
 include("eval.jl")
 include("testfile.jl")

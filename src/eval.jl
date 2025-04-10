@@ -8,7 +8,8 @@ const TESTENV_CACHE = Dict{PackageSpec,String}()
 clear_testenv_cache() = empty!(TESTENV_CACHE)
 
 "Evaluate `ex` scoped in a `Module`, while activating the test environment of `pkg`."
-function eval_in_module(ex::Expr, pkg::PackageSpec)
+function eval_in_module(test::TestInfo, pkg::PackageSpec)
+    (; ex, filename, testset, line) = test
     mod = gensym(pkg.name)
     testenv_expr = if haskey(TESTENV_CACHE, pkg)
         quote
@@ -22,14 +23,19 @@ function eval_in_module(ex::Expr, pkg::PackageSpec)
         end
     end
 
-    mod_content = Expr(:block, :(using TestPicker.Test), ex)
+    test_content = Expr(:block, :(using TestPicker.Test), ex)
 
-    module_expr = Expr(:module, true, mod, mod_content)
+    module_expr = Expr(:module, true, mod, test_content)
 
     top_ex = Expr(:toplevel, testenv_expr, module_expr, :nothing)
 
     env_return = quote
         Pkg.activate($(pkg.path); io=devnull)
+    end
+    if !isempty(testset)
+        @info "Executing testset $(testset) from $(filename):$(line)"
+    else
+        @info "Executing test file $(filename)"
     end
     withenv("JULIA_PKG_PRECOMPILE_AUTO" => 0) do
         try
