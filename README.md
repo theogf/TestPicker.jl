@@ -74,6 +74,22 @@ which will give you e.g. the following selection
 "I am a testset"       |    test-a.jl:3
 ```
 
+### Repeating latest test
+
+After running a collection of test files and/or testsets you can just repeat the same operation by calling `-`(in the samme fashion as `cd -`):
+
+```
+test> test-a
+[ Info: Executing test file /home/theo/.julia/dev/TestPicker/test/sandbox/test-a.jl
+Test Summary:                                                        | Pass  Total  Time
+TestPicker - /home/theo/.julia/dev/TestPicker/test/sandbox/test-a.jl |    1      1  0.0s
+
+test> -
+[ Info: Executing test file /home/theo/.julia/dev/TestPicker/test/sandbox/test-a.jl
+Test Summary:                                                        | Pass  Total  Time
+TestPicker - /home/theo/.julia/dev/TestPicker/test/sandbox/test-a.jl |    1      1  0.0s
+```
+
 ### Execution
 
 - All selections will be run inside a module, in a similar fashion to [`SafeTestsets.jl`](https://github.com/YingboMa/SafeTestsets.jl).
