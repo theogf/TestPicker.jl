@@ -2,16 +2,17 @@ module TestPicker
 
 using bat_jll: bat
 using fzf_jll: fzf
-using ripgrep_jll: rg
-using REPL
-using REPL: LineEdit
 using JuliaSyntax
-using TestEnv
-using TestEnv: TestEnvError, get_test_dir, isinstalled!
 using Pkg
 using Pkg: PackageSpec
 using Pkg.Types: Context
+using REPL
+using REPL: LineEdit
+using Revise: Revise
+using ripgrep_jll: rg
 using Test
+using TestEnv
+using TestEnv: TestEnvError, get_test_dir, isinstalled!
 
 export clear_testenv_cache
 

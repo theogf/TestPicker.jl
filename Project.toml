@@ -1,12 +1,13 @@
 name = "TestPicker"
 uuid = "a64165b9-4409-4de6-85cd-a4e0953bae44"
 authors = ["theogf <theo.galyfajou@gmail.com> and contributors"]
-version = "0.1.5"
+version = "0.1.6"
 
 [deps]
 JuliaSyntax = "70703baa-626e-46a2-a12c-08ffd08c73b4"
 Pkg = "44cfe95a-1eb2-52ea-b672-e2afdf69b78f"
 REPL = "3fa0cd96-eef1-5676-8a61-b3b8758bbffb"
+Revise = "295af30f-e4ad-537b-8983-00126c2a3abe"
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 TestEnv = "1e6cf692-eddd-4d53-88a5-2d735e33781b"
 bat_jll = "e1736374-6498-5d90-ab12-e7e58ba27d07"
@@ -17,6 +18,7 @@ ripgrep_jll = "e10fc14b-37cd-5cbc-b289-ad01b12ebaad"
 JuliaSyntax = "0.4"
 Pkg = "1"
 REPL = "1"
+Revise = "3"
 Test = "1"
 TestEnv = "1"
 bat_jll = "13.0.0"
