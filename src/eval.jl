@@ -11,13 +11,24 @@ clear_testenv_cache() = empty!(TESTENV_CACHE)
 function eval_in_module(test::TestInfo, pkg::PackageSpec)
     (; ex, filename, testset, line) = test
     mod = gensym(pkg.name)
+    revise_ex = quote
+        import TestPicker: Revise
+        Revise.revise()
+    end
+    auto_precompile_state = get(ENV, "JULIA_PKG_PRECOMPILE_AUTO", "")
+    disable_precompilation_expr = :(ENV["JULIA_PKG_PRECOMPILE_AUTO"] = 0)
+    restore_precompilation_state =
+        :(ENV["JULIA_PKG_PRECOMPILE_AUTO"] = $(auto_precompile_state))
     testenv_expr = if haskey(TESTENV_CACHE, pkg)
         quote
+            $(disable_precompilation_expr)
+            ENV["JULIA_DEBUG"] = "loading"
             import TestPicker: Pkg
             Pkg.activate($(TESTENV_CACHE[pkg]); io=devnull)
         end
     else
         quote
+            $(disable_precompilation_expr)
             import TestPicker: Pkg, TestEnv, TESTENV_CACHE
             TESTENV_CACHE[$pkg] = TestEnv.activate($(pkg.name))
         end
@@ -31,6 +42,7 @@ function eval_in_module(test::TestInfo, pkg::PackageSpec)
 
     env_return = quote
         Pkg.activate($(pkg.path); io=devnull)
+        $(restore_precompilation_state)
     end
     if !isempty(testset)
         @info "Executing testset $(testset) from $(filename):$(line)"
@@ -39,6 +51,7 @@ function eval_in_module(test::TestInfo, pkg::PackageSpec)
     end
     withenv("JULIA_PKG_PRECOMPILE_AUTO" => 0) do
         try
+            Core.eval(Main, revise_ex)
             Core.eval(Main, top_ex)
         finally
             Core.eval(Main, env_return)
