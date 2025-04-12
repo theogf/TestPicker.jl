@@ -54,7 +54,7 @@ function create_repl_test_mode(repl::AbstractREPL, main::LineEdit.Prompt)
 
         # Process the input command inside the pager mode.
         try
-            test_mode_do_cmd(repl, input)
+            test_mode_do_cmd(input)
         catch e
             e isa TestSetException ||
                 @error "Could not complete test picker action due to error:\n$(current_exceptions()))"
@@ -92,29 +92,28 @@ function create_repl_test_mode(repl::AbstractREPL, main::LineEdit.Prompt)
     return test_mode
 end
 
-@enum TestType TestFile TestSet LatestEval Unmatched
+@enum QueryType TestFileQuery TestsetQuery LatestEval UnmatchedQuery
 
 function identify_query(input::String)
     if strip(input) == "-"
         if isnothing(LATEST_EVAL[])
             @error "No test evaluated yet (reset with every session)."
-            Unmatched, ()
+            UnmatchedQuery, ()
         else
             LatestEval, LATEST_EVAL[]
         end
     else
         m = match(r"(.*):(.*)", input)
         if !isnothing(m)
-            TestSet, Tuple(m.captures)
+            TestsetQuery, Tuple(m.captures)
         else
-            TestFile, (input, "")
+            TestFileQuery, (input, "")
         end
     end
 end
 
-# Execute the actions when a command has been received in the REPL mode `test`. `repl`
-# must be the active REPL, and `input` is a string with the command.
-function test_mode_do_cmd(repl::AbstractREPL, input::String)
+# Execute the actions when a command has been received in the REPL mode `test`
+function test_mode_do_cmd(input::String)
     if !isinteractive() && get(ENV, "PRINT_REPL_WARNING", true)
         @warn "The test mode is intended for interaction use only, and cannot not be used from scripts."
     end
@@ -123,14 +122,16 @@ function test_mode_do_cmd(repl::AbstractREPL, input::String)
 
     @debug "Running $(test_type) with inputs $(inputs...)"
 
-    if test_type == TestFile
+    if test_type == TestFileQuery
         find_and_run_test_file(first(inputs))
-    elseif test_type == TestSet
+    elseif test_type == TestsetQuery
         select_and_run_testset(inputs...)
     elseif test_type == LatestEval
         for expr in inputs
             eval_in_module(expr, current_pkg())
         end
+    else
+        error("Query $(input) could not be interpreted.")
     end
 
     return nothing
