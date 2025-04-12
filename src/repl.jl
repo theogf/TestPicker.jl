@@ -2,7 +2,7 @@
 
 test_mode_prompt() = "test> "
 
-test_trigger = '!'
+const TESTMODE_TRIGGER = '!'
 
 # Initialize the pager mode in the `repl`.
 function init_test_repl_mode(repl::AbstractREPL)
@@ -10,14 +10,14 @@ function init_test_repl_mode(repl::AbstractREPL)
     main_mode = repl.interface.modes[1]
 
     # Create the pager mode.
-    test_mode = create_test_repl_mode(repl, main_mode)
+    test_mode = create_repl_test_mode(repl, main_mode)
 
     # Add the new mode to the REPL interfaces.
     push!(repl.interface.modes, test_mode)
 
     # Assign `test_trigger` as the key map to switch to pager mode.
     keymap = Dict{Any,Any}(
-        test_trigger => function (s, args...)
+        TESTMODE_TRIGGER => function (s, args...)
             # We must only switch to pager mode if `!` is typed at the beginning
             # of the line.
             if isempty(s) || position(LineEdit.buffer(s)) == 0
@@ -26,7 +26,7 @@ function init_test_repl_mode(repl::AbstractREPL)
                     LineEdit.state(s, test_mode).input_buffer = buf
                 end
             else
-                LineEdit.edit_insert(s, test_trigger)
+                LineEdit.edit_insert(s, TESTMODE_TRIGGER)
             end
         end
     )
@@ -37,7 +37,7 @@ function init_test_repl_mode(repl::AbstractREPL)
     return nothing
 end
 
-function create_test_repl_mode(repl::AbstractREPL, main::LineEdit.Prompt)
+function create_repl_test_mode(repl::AbstractREPL, main::LineEdit.Prompt)
     test_mode = LineEdit.Prompt(
         test_mode_prompt;
         prompt_prefix=repl.options.hascolor ? Base.text_colors[:magenta] : "",
