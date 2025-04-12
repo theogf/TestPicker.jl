@@ -44,17 +44,32 @@ function eval_in_module(test::TestInfo, pkg::PackageSpec)
         Pkg.activate($(pkg.path); io=devnull)
         $(restore_precompilation_state)
     end
+    clean_module = quote
+        for name in names($mod; all=true)
+            try
+                var = getproperty($mod, name)
+                if !isconst($mod, name)
+                    setproperty!($mod, name, nothing)
+                end
+            catch
+                if isa(e, UndefVarError)
+                    continue
+                else
+                    rethrow()
+                end
+            end
+        end
+    end
     if !isempty(testset)
         @info "Executing testset $(testset) from $(filename):$(line)"
     else
         @info "Executing test file $(filename)"
     end
-    withenv("JULIA_PKG_PRECOMPILE_AUTO" => 0) do
-        try
-            Core.eval(Main, revise_ex)
-            Core.eval(Main, top_ex)
-        finally
-            Core.eval(Main, env_return)
-        end
+    try
+        Core.eval(Main, revise_ex)
+        Core.eval(Main, top_ex)
+    finally
+        Core.eval(Main, env_return)
+        Core.eval(Main, clean_module)
     end
 end
