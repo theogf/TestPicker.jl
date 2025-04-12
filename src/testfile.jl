@@ -1,8 +1,7 @@
 "Find all test files that are close to `query`."
-function find_related_testfile(query::AbstractString)
-    root, files = get_test_files()
+function find_related_testfile(query::AbstractString, pkg::PackageSpec=current_pkg())
+    root, files = get_test_files(pkg)
     # Run fzf to get a relevant file.
-    preview_cmd = []
     files = fzf() do fzf_exe
         bat() do bat_exe
             cmd = Cmd(
@@ -24,7 +23,7 @@ function find_related_testfile(query::AbstractString)
         end
     end
     if isempty(files)
-        @debug "Could not find any files with query $query"
+        @debug "Could not find any relevant files with query \"$query\"."
         files
     else
         joinpath.(Ref(root), files)
@@ -32,13 +31,12 @@ function find_related_testfile(query::AbstractString)
 end
 
 """
-    get_test_files() -> String, Vector{String}
+    get_test_files(pkg::PackageSpec = current_pkg()) -> String, Vector{String}
 
 Get full collection of test files for the given package. Return the absolute path of the test directory and 
 the collection of test files as paths relative to it.
 """
-function get_test_files()
-    pkg = current_pkg()
+function get_test_files(pkg::PackageSpec=current_pkg())
     ctx = Context()
     isinstalled!(ctx, pkg) || throw(ArgumentError("$pkg not installed 👻"))
     test_dir = get_test_dir(ctx, pkg)
@@ -55,7 +53,12 @@ end
 "Run fzf with the given input and if the file is a valid one run the test with the Test environment."
 function find_and_run_test_file(query::AbstractString)
     pkg = current_pkg()
-    files = find_related_testfile(query)
+    files = find_related_testfile(query, pkg)
+    return run_test_files(files, pkg)
+end
+
+function run_test_files(files::AbstractVector{<:AbstractString}, pkg::PackageSpec)
+    # Reset the latest eval data.
     LATEST_EVAL[] = TestInfo[]
     for file in files
         if isempty(file)
@@ -73,6 +76,10 @@ function run_test_file(file::AbstractString, pkg::PackageSpec)
         include($file)
     end)
     test = TestInfo(ex, file, "", 0)
-    push!(LATEST_EVAL[], test)
+    if !isnothing(LATEST_EVAL[])
+        push!(LATEST_EVAL[], test)
+    else
+        LATEST_EVAL[] = [test]
+    end
     return eval_in_module(test, pkg)
 end
