@@ -90,7 +90,7 @@ function build_file_testset_map(
     full_map = mapreduce(merge, matched_files) do file
         # Keep track of file name length for padding.
         testsets_preambles = get_testsets_with_preambles(joinpath(root, file))
-        testsets_info = Dict(
+        Dict(
             map(testsets_preambles) do (testset, preambles)
                 name = JuliaSyntax.sourcetext(JuliaSyntax.children(testset)[2])
                 line_start, _ = JuliaSyntax.source_location(
@@ -128,22 +128,20 @@ function pick_testset(
                 cmd = Cmd(
                     String[
                         fzf_exe,
+                        "-m", # Multiple choice
                         "--preview",
                         build_preview_arg(rg_exe, bat_exe),
                         "--query",
                         testset_query,
                     ],
                 )
-                chomp(
-                    read(
-                        pipeline(
-                            addenv(
-                                Cmd(cmd; ignorestatus=true, dir=root),
-                                "SHELL" => Sys.which("bash"),
-                            );
-                            stdin=IOBuffer(join(keys(tabled_keys), '\n')),
-                        ),
-                        String,
+                readlines(
+                    pipeline(
+                        addenv(
+                            Cmd(cmd; ignorestatus=true, dir=root),
+                            "SHELL" => Sys.which("bash"),
+                        );
+                        stdin=IOBuffer(join(keys(tabled_keys), '\n')),
                     ),
                 )
             end
@@ -151,23 +149,31 @@ function pick_testset(
     end
 end
 
+function build_testinfo_list(choices, full_map, tabled_keys)
+    map(choices) do choice
+        testset_info = tabled_keys[choice]
+        testset, preamble = full_map[testset_info]
+        ex = Expr(:block, Expr.(preamble)..., Expr(testset))
+        (; testset_name, file_name, line_start) = testset_info
+        TestInfo(ex, file_name, testset_name, line_start)
+    end
+end
+
 "Given a `fuzzy_file` query and a testset `query` return all possible testset that match both the file and the testset names, provide a choice and execute it."
 function select_and_run_testset(fuzzy_file::AbstractString, fuzzy_testset::AbstractString)
-    root, test_files = get_test_files()
+    pkg = current_pkg()
+    root, test_files = get_test_files(pkg)
     # We fetch all valid test files.
     matched_files = get_matching_files(fuzzy_file, test_files)
     # We create  the collection of testsets based on the list of files.
     full_map, tabled_keys = build_file_testset_map(root, matched_files)
 
-    choice = pick_testset(tabled_keys, fuzzy_testset, root)
-    if !isempty(choice)
-        testset_info = tabled_keys[choice]
-        testset, preamble = full_map[testset_info]
-        ex = Expr(:block, Expr.(preamble)..., Expr(testset))
-        pkg = current_pkg()
-        (; testset_name, file_name, line_start) = testset_info
-        test = TestInfo(ex, file_name, testset_name, line_start)
-        LATEST_EVAL[] = [test]
-        eval_in_module(test, pkg)
+    choices = pick_testset(tabled_keys, fuzzy_testset, root)
+    if !isempty(choices)
+        tests = build_testinfo_list(choices, full_map, tabled_keys)
+        LATEST_EVAL[] = tests
+        for test in tests
+            eval_in_module(test, pkg)
+        end
     end
 end
