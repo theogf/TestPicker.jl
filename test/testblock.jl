@@ -43,4 +43,9 @@ end
         """#= $(joinpath(root, file)):3 =# @testset "I am a testset" begin"""
     @test stripped_lines[2] == """#= $(joinpath(root, file)):4 =# @test true"""
     @test Expr(only(last(test_data))) == :(using Test)
+
+    file = "test-b.jl"
+    full_map, tabled_keys = build_file_testset_map(root, [file])
+    testinfo = only(keys(full_map))
+    @test testinfo == TestsetInfo("\"Challenge for JuliaSyntax\"", file, 1, 6)
 end
