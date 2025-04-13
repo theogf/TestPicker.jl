@@ -2,7 +2,7 @@ using TestPicker
 using Test
 using TestPicker: create_repl_test_mode, identify_query
 using TestPicker: TestFileQuery, LatestEval, TestsetQuery, UnmatchedQuery
-using REPL: BasicREPL, LineEdit, Terminals, LineEditREPL, run_repl
+using REPL: REPL, BasicREPL, LineEdit, Terminals, LineEditREPL, run_repl
 
 # From Pkg.jl/REPLExt
 struct FakeTerminal <: Terminals.UnixTerminal
