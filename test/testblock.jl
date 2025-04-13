@@ -2,7 +2,16 @@ using Test
 using JuliaSyntax
 using TestPicker
 using TestPicker: TestsetInfo
-using TestPicker: get_test_files, get_matching_files, build_file_testset_map, pick_testset
+using TestPicker:
+    get_testsets_with_preambles,
+    get_test_files,
+    get_matching_files,
+    build_file_testset_map,
+    pick_testset
+
+function no_indentation(s::AbstractString)
+    return replace(s, r"^\s+"m => "")
+end
 
 @testset "Testset node detection" begin
     s = """
@@ -48,4 +57,41 @@ end
     full_map, tabled_keys = build_file_testset_map(root, [file])
     testinfo = only(keys(full_map))
     @test testinfo == TestsetInfo("\"Challenge for JuliaSyntax\"", file, 1, 6)
+end
+
+@testset "Nested testsets fetching" begin
+    root = joinpath(pkgdir(TestPicker), "test", "sandbox", "test-subdir")
+    file = "test-file-c.jl"
+    testsets_preambles = get_testsets_with_preambles(joinpath(root, file))
+    @test length(testsets_preambles) == 3
+    # Check the first top testset
+    testset, preambles = first(testsets_preambles)
+    @test no_indentation(JuliaSyntax.sourcetext(testset)) == """
+@testset "First level" begin
+a = 2
+f(2)
+@testset "Second level" begin
+@test c == 3
+d = 4
+end
+end"""
+    @test JuliaSyntax.sourcetext.(preambles) == ["using Test"]
+
+    # Check the next second level testset
+    testset, preambles = testsets_preambles[2]
+    @test no_indentation(JuliaSyntax.sourcetext(testset)) == """
+@testset "Second level" begin
+@test c == 3
+d = 4
+end"""
+    @test no_indentation.(JuliaSyntax.sourcetext.(preambles)) ==
+        ["using Test", "a = 2", "f(2)"]
+
+    # Check another top level to ensure there is no preamble propagation
+    testset, preambles = testsets_preambles[3]
+    @test no_indentation(JuliaSyntax.sourcetext(testset)) == """
+@testset "First level - B" begin
+@test w == 1
+end"""
+    @test no_indentation.(JuliaSyntax.sourcetext.(preambles)) == ["using Test", "x = 5"]
 end
