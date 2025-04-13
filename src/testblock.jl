@@ -4,13 +4,37 @@ function is_testset(node::SyntaxNode)
            Expr(first(JuliaSyntax.children(node))) == Symbol("@testset")
 end
 
+function is_preamble(node::SyntaxNode)
+    ex = Expr(node)
+    Meta.isexpr(ex, :call) && return true
+    Meta.isexpr(ex, :using) && return true
+    Meta.isexpr(ex, :import) && return true
+    Meta.isexpr(ex, :(=)) && return true
+    Meta.isexpr(ex, :macrocall) && return true
+    return false
+end
+
 "Fetch all the top nodes from `file` and split them between a `preamble` and `testsets`."
-function get_preamble_testsets(file::AbstractString)
+function get_testsets_with_preambles(file::AbstractString)
     root = parseall(SyntaxNode, read(file, String); filename=file)
-    top_nodes = JuliaSyntax.children(root)
-    preamble_nodes = filter(!is_testset, top_nodes)
-    testsets = filter(is_testset, top_nodes)
-    return preamble_nodes, testsets
+    testsets_with_preambles = Vector{Pair{SyntaxNode,Vector{SyntaxNode}}}()
+    get_testsets_with_preambles!(testsets_with_preambles, root)
+    return testsets_with_preambles
+end
+function get_testsets_with_preambles!(
+    testsets_with_preambles, node::SyntaxNode, preamble::Vector{SyntaxNode}=SyntaxNode[]
+)
+    for node in JuliaSyntax.children(node)
+        if is_testset(node)
+            push!(testsets_with_preambles, (node => copy(preamble)))
+            get_testsets_with_preambles!(testsets_with_preambles, node, copy(preamble))
+        else
+            get_testsets_with_preambles!(testsets_with_preambles, node, copy(preamble))
+            if is_preamble(node)
+                push!(preamble, node)
+            end
+        end
+    end
 end
 
 "Build the command line function to be run by `fzf` to preview the relevant code lines."
@@ -65,15 +89,18 @@ function build_file_testset_map(
 )
     full_map = mapreduce(merge, matched_files) do file
         # Keep track of file name length for padding.
-        preamble, testsets = get_preamble_testsets(joinpath(root, file))
-        testsets_info = map(testsets) do node
-            name = JuliaSyntax.sourcetext(JuliaSyntax.children(node)[2])
-            line_start, _ = JuliaSyntax.source_location(node.source, node.position)
-            block_length = countlines(IOBuffer(JuliaSyntax.sourcetext(node)))
-            line_end = line_start + block_length - 1
-            TestsetInfo(name, file, line_start, line_end)
-        end
-        Dict(testsets_info .=> (testsets .=> Ref(preamble)))
+        testsets_preambles = get_testsets_with_preambles(joinpath(root, file))
+        testsets_info = Dict(
+            map(testsets_preambles) do (testset, preambles)
+                name = JuliaSyntax.sourcetext(JuliaSyntax.children(testset)[2])
+                line_start, _ = JuliaSyntax.source_location(
+                    testset.source, testset.position
+                )
+                block_length = countlines(IOBuffer(JuliaSyntax.sourcetext(testset)))
+                line_end = line_start + block_length - 1
+                TestsetInfo(name, file, line_start, line_end) => (testset => preambles)
+            end,
+        )
     end
     max_testset_length = maximum(length ∘ testset_name, keys(full_map))
     max_filename_length = maximum(length ∘ file_name, keys(full_map))
