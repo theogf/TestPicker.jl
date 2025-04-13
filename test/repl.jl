@@ -2,14 +2,28 @@ using TestPicker
 using Test
 using TestPicker: create_repl_test_mode, identify_query
 using TestPicker: TestFileQuery, LatestEval, TestsetQuery, UnmatchedQuery
-using REPL: LineEdit
+using REPL: REPL, BasicREPL, LineEdit, Terminals, LineEditREPL, run_repl
 
+# From Pkg.jl/REPLExt
+struct FakeTerminal <: Terminals.UnixTerminal
+    in_stream::IOBuffer
+    out_stream::IOBuffer
+    err_stream::IOBuffer
+    hascolor::Bool
+    raw::Bool
+    FakeTerminal() = new(IOBuffer(), IOBuffer(), IOBuffer(), false, true)
+end
+REPL.raw!(::FakeTerminal, raw::Bool) = raw
 @testset "Building the REPL mode" begin
-    repl = Base.active_repl
-    test_mode = create_repl_test_mode(repl, repl.interface.modes[1])
-    @test test_mode isa LineEdit.Prompt
-    @test test_mode.prompt() == "test> "
-    @test test_mode.on_done isa Function
+    if Sys.isunix()
+        tty = FakeTerminal()
+        repl = LineEditREPL(tty, true)
+        run_repl(repl)
+        test_mode = create_repl_test_mode(repl, repl.interface.modes[1])
+        @test test_mode isa LineEdit.Prompt
+        @test test_mode.prompt() == "test> "
+        @test test_mode.on_done isa Function
+    end
 end
 
 @testset "Identify query" begin

@@ -69,8 +69,9 @@ function build_file_testset_map(
         testsets_info = map(testsets) do node
             name = JuliaSyntax.sourcetext(JuliaSyntax.children(node)[2])
             line_start, _ = JuliaSyntax.source_location(node.source, node.position)
-            line_end, _ = JuliaSyntax.source_location(node.source, last_leaf(node).position)
-            TestsetInfo(name, file, line_start, line_end + 1)
+            block_length = countlines(IOBuffer(JuliaSyntax.sourcetext(node)))
+            line_end = line_start + block_length - 1
+            TestsetInfo(name, file, line_start, line_end)
         end
         Dict(testsets_info .=> (testsets .=> Ref(preamble)))
     end
