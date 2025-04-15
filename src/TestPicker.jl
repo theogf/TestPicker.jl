@@ -30,6 +30,7 @@ include("eval.jl")
 include("testfile.jl")
 include("testblock.jl")
 include("repl.jl")
+include("results_viewer.jl")
 
 function __init__()
     # Add the REPL mode to the current active REPL.
