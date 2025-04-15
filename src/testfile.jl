@@ -58,6 +58,8 @@ function find_and_run_test_file(query::AbstractString)
 end
 
 function run_test_files(files::AbstractVector{<:AbstractString}, pkg::PackageSpec)
+    # We return early to not empty the LATEST_EVAL
+    isempty(files) && return nothing
     # Reset the latest eval data.
     LATEST_EVAL[] = TestInfo[]
     for file in files
