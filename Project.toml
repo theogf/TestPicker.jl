@@ -4,6 +4,7 @@ authors = ["theogf <theo.galyfajou@gmail.com> and contributors"]
 version = "0.1.11"
 
 [deps]
+JSON3 = "0f8b85d8-7281-11e9-16c2-39a750bddbf1"
 JuliaSyntax = "70703baa-626e-46a2-a12c-08ffd08c73b4"
 Pkg = "44cfe95a-1eb2-52ea-b672-e2afdf69b78f"
 REPL = "3fa0cd96-eef1-5676-8a61-b3b8758bbffb"

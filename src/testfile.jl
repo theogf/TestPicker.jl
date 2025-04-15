@@ -72,11 +72,25 @@ function run_test_files(files::AbstractVector{<:AbstractString}, pkg::PackageSpe
     end
 end
 
+function store_testset(path::AbstractString, testset::TestSetException)
+    testset_map = Dict()
+    for test in testset.errors_and_fails
+        d[test] = test
+    end
+end
+
 function run_test_file(file::AbstractString, pkg::PackageSpec)
     testset_name = "$(pkg.name) - $(file)"
-    ex = :(@testset $testset_name begin
-        include($file)
-    end)
+    ex = quote
+        try
+            @testset $testset_name begin
+                include($file)
+            end
+        catch e
+            !(e isa TestSetException) && rethrow()
+            store_testset("temp", e)
+        end
+    end
     test = TestInfo(ex, file, "", 0)
     if !isnothing(LATEST_EVAL[])
         push!(LATEST_EVAL[], test)
