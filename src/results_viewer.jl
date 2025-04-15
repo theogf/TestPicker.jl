@@ -1,4 +1,4 @@
-const SEPARATOR = "~~~"
+const RESULT_PATH = first(mktemp())
 separator() = "~~~"
 function load_testresults()
     fzf() do fzf_exe
@@ -14,8 +14,6 @@ function load_testresults()
         run(pipeline(cmd; stdin=IOBuffer(read(RESULT_PATH, String))))
     end
 end
-
-const RESULT_PATH = first(mktemp())
 
 function preview_content(test::Test.Error)
     return test.value * test.backtrace
