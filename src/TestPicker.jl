@@ -7,7 +7,7 @@ using Pkg
 using Pkg: PackageSpec
 using Pkg.Types: Context
 using REPL
-using REPL: LineEdit
+using REPL: LineEdit, Terminals
 using Revise: Revise
 using ripgrep_jll: rg
 using Test
