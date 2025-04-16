@@ -27,9 +27,15 @@ function load_testresults()
     lines = split(text, '\n')[3:end]
     traces = join.(Iterators.partition(lines, 2), '\n')
     enriched = map(traces) do trace
-        @show path = match(r"(\S+\.jl):(\d+)", trace)
+        path = match(r"(\S+\.jl):(\d+)", trace)
         if !isnothing(path)
-            join([trace, remove_ansi.(path.captures)...], separator())
+            file_path, line = remove_ansi.(path.captures)
+            line = max(1, Base.parse(Int, line) - 2)
+            source_path = @something(
+                Base.find_source_file(file_path), expanduser(file_path)
+            )
+            @show file_path, source_path
+            join([trace, source_path, line], separator())
         else
             trace
         end
@@ -45,7 +51,7 @@ function load_testresults()
             "--with-nth",
             "{1}",
             "--preview",
-            "bat {2} --color=always --line-range={3}:",
+            "bat --line-range={3}: --color=always {2}",
             "-d",
             separator(),
         ],
@@ -57,14 +63,7 @@ function load_testresults()
 end
 
 function remove_ansi(s::AbstractString)
-    reg = r"""
-    (?P<col>(\x1b     # literal ESC
-    \[       # literal [
-    [;\d]*   # zero or more digits or semicolons
-    [A-Za-z] # a letter
-    )*)
-    (?P<name>.*)
-    """
+    reg = r"""(?P<col>(\x1b\[[;\d]*[A-Za-z])*)"""
     return replace(s, reg => "")
 end
 
