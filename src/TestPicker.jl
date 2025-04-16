@@ -3,6 +3,7 @@ module TestPicker
 using bat_jll: bat
 using fzf_jll: fzf
 using JuliaSyntax
+using InteractiveUtils: editor
 using Pkg
 using Pkg: PackageSpec
 using Pkg.Types: Context

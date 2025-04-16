@@ -9,7 +9,7 @@ function get_preview_dimension(terminal::Terminals.TextTerminal)
 end
 function load_testresults(repl::AbstractREPL=Base.active_repl)
     # fzf() do fzf_exe
-    editor = ENV["EDITOR"]
+    editor_cmd = join(editor(), ' ')
     terminal = repl.t
     # end
     while true
@@ -29,7 +29,7 @@ function load_testresults(repl::AbstractREPL=Base.active_repl)
                 "--preview",
                 "echo {3} | bat - --color=always --style=plain --terminal-width=$(dims.width)",
                 "--bind",
-                "ctrl-o:execute($(editor) {2})",
+                "ctrl-e:execute($(editor_cmd) {2})",
             ],
         )
         picked_val = chomp(
@@ -86,7 +86,7 @@ function load_testresults(repl::AbstractREPL=Base.active_repl)
                 "--preview",
                 "bat --line-range {4}:{5} --highlight-line {3} --color=always --terminal-width=$(dims.width) {2}",
                 "--bind",
-                "ctrl-o:execute($(editor) {2}:{3})",
+                "ctrl-e:execute($(editor_cmd) {2}:{3})",
                 "-d",
                 separator(),
             ],
