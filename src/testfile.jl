@@ -82,13 +82,14 @@ end
 function run_test_file(file::AbstractString, pkg::PackageSpec)
     testset_name = "$(pkg.name) - $(file)"
     ex = quote
+        using TestPicker: TestPicker
         try
             @testset $testset_name begin
                 include($file)
             end
         catch e
             !(e isa TestSetException) && rethrow()
-            store_testset("temp", e)
+            TestPicker.save_test_results(e)
         end
     end
     test = TestInfo(ex, file, "", 0)
