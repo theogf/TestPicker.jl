@@ -133,7 +133,7 @@ function test_mode_do_cmd(repl::AbstractREPL, input::String)
             eval_in_module(expr, current_pkg())
         end
     elseif test_type == InspectResults
-        load_testresults(repl)
+        visualize_test_results(repl)
     else
         error("Query $(input) could not be interpreted.")
     end

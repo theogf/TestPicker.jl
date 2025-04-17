@@ -59,7 +59,7 @@ You can select multiple files to run in the `fzf` selection with `Tab` and `Shif
 
 ### Running test blocks
 
-If the character `:` appears in your query, `TestPicker` will instead look for toplevel `@testset` present in your `test` folder. Any preamble like `using Test`, `config = ...` will be run as well as long as it is outside of the `@testset` block.
+If the character `:` appears in your query, `TestPicker` will instead look for all `@testset`s present in your `test` folder, including nested ones. Any preamble like `using Test`, `config = ...` will be run as well as long as it is before the `@testset` block.
 
 The syntax is the following
 
@@ -73,6 +73,8 @@ which will give you e.g. the following selection
 "I am another testset  |    test-b.jl:6
 "I am a testset"       |    test-a.jl:3
 ```
+
+Similarly to the multiple files, you can select multiple testsets to be run and they will be run independently.
 
 ### Repeating latest test
 
@@ -89,6 +91,10 @@ test> -
 Test Summary:                                                        | Pass  Total  Time
 TestPicker - /home/theo/.julia/dev/TestPicker/test/sandbox/test-a.jl |    1      1  0.0s
 ```
+
+### Inspecting test results
+
+The testset summary is of course shown.
 
 ### Execution
 
