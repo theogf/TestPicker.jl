@@ -11,7 +11,11 @@ function get_preview_dimension(terminal::Terminals.TextTerminal)
 end
 
 """
-This creates a loop on the latest evaluated test file. By showing the fial
+This creates a loop on the latest evaluated test file.
+It shows a list of the tests that errored and failed with a preview of their stacktrace.
+You can edit the selected test with `Ctrl+e` or inspect the stacktrace for errored tests with `Enter`.
+It is also possible to inspect the stacktrace as a list with a preview of the source when possible and
+`Ctrl+e` edit the source of the current trace.
 """
 function visualize_test_results(repl::AbstractREPL=Base.active_repl)
     fzf() do fzf_exe
