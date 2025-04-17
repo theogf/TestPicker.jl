@@ -94,7 +94,12 @@ TestPicker - /home/theo/.julia/dev/TestPicker/test/sandbox/test-a.jl |    1     
 
 ### Inspecting test results
 
-The testset summary is of course shown.
+After running tests, the `TestSet` summary is shown but you can inspect results further with `?`.
+
+It will show a list of the tests that errored and failed with a preview of their stacktrace.
+You can edit the selected test with `Ctrl+e` or inspect the stacktrace for errored tests with `Enter`.
+It is also possible to inspect the stacktrace as a list with a preview of the source when possible and
+`Ctrl+e` edit the source of the current trace.
 
 ### Execution
 
