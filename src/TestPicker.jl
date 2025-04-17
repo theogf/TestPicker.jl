@@ -3,11 +3,12 @@ module TestPicker
 using bat_jll: bat
 using fzf_jll: fzf
 using JuliaSyntax
+using InteractiveUtils: editor
 using Pkg
 using Pkg: PackageSpec
 using Pkg.Types: Context
 using REPL
-using REPL: LineEdit
+using REPL: LineEdit, Terminals
 using Revise: Revise
 using ripgrep_jll: rg
 using Test
@@ -30,6 +31,7 @@ include("eval.jl")
 include("testfile.jl")
 include("testblock.jl")
 include("repl.jl")
+include("results_viewer.jl")
 
 function __init__()
     # Add the REPL mode to the current active REPL.

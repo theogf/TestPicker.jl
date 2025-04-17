@@ -43,7 +43,7 @@ end
     file = "test-a.jl"
     full_map, tabled_keys = build_file_testset_map(root, [file])
     @test length(full_map) == length(tabled_keys)
-    @test only(keys(full_map)) == TestsetInfo("\"I am a testset\"", file, 3, 5)
+    @test only(keys(full_map)) == TestsetInfo("\"I am a testset\"", file, 3, 7)
     test_data = only(values(full_map))
     @test test_data isa Pair{SyntaxNode,Vector{SyntaxNode}}
     string_version = string(Base.remove_linenums!(Expr(first(test_data))))

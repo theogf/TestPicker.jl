@@ -54,7 +54,7 @@ function create_repl_test_mode(repl::AbstractREPL, main::LineEdit.Prompt)
 
         # Process the input command inside the pager mode.
         try
-            test_mode_do_cmd(input)
+            test_mode_do_cmd(repl, input)
         catch e
             e isa TestSetException ||
                 @error "Could not complete test picker action due to error:\n$(current_exceptions()))"
@@ -92,7 +92,7 @@ function create_repl_test_mode(repl::AbstractREPL, main::LineEdit.Prompt)
     return test_mode
 end
 
-@enum QueryType TestFileQuery TestsetQuery LatestEval UnmatchedQuery
+@enum QueryType TestFileQuery TestsetQuery LatestEval InspectResults UnmatchedQuery
 
 function identify_query(input::String)
     if strip(input) == "-"
@@ -102,6 +102,8 @@ function identify_query(input::String)
         else
             LatestEval, LATEST_EVAL[]
         end
+    elseif strip(input) == "?"
+        InspectResults, ()
     else
         m = match(r"(.*):(.*)", input)
         if !isnothing(m)
@@ -113,7 +115,7 @@ function identify_query(input::String)
 end
 
 # Execute the actions when a command has been received in the REPL mode `test`
-function test_mode_do_cmd(input::String)
+function test_mode_do_cmd(repl::AbstractREPL, input::String)
     if !isinteractive() && get(ENV, "PRINT_REPL_WARNING", true)
         @warn "The test mode is intended for interaction use only, and cannot not be used from scripts."
     end
@@ -130,6 +132,8 @@ function test_mode_do_cmd(input::String)
         for expr in inputs
             eval_in_module(expr, current_pkg())
         end
+    elseif test_type == InspectResults
+        visualize_test_results(repl)
     else
         error("Query $(input) could not be interpreted.")
     end
