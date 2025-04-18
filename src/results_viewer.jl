@@ -124,7 +124,7 @@ function preview_content(test::Test.Error)
 end
 
 function preview_content(test::Test.Fail)
-    return test.value
+    return test.data
 end
 
 "Obtain the source from the LineNumberNode."
