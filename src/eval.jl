@@ -7,6 +7,16 @@ const TESTENV_CACHE = Dict{PackageSpec,String}()
 
 clear_testenv_cache() = empty!(TESTENV_CACHE)
 
+"Create a new block by either preprending a `new_line` to an existing block or
+creating a new block with the two expresssions."
+function prepend_ex(ex, new_line::Expr)
+    if Meta.isexpr(ex, :block)
+        Expr(:block, new_line, ex.args...)
+    else
+        Expr(:block, new_line, ex)
+    end
+end
+
 "Evaluate `ex` scoped in a `Module`, while activating the test environment of `pkg`."
 function eval_in_module(test::TestInfo, pkg::PackageSpec)
     (; ex, filename, testset, line) = test
@@ -34,7 +44,7 @@ function eval_in_module(test::TestInfo, pkg::PackageSpec)
         end
     end
 
-    test_content = Expr(:block, :(using TestPicker.Test), ex)
+    test_content = prepend_ex(ex, :(using TestPicker.Test))
 
     module_expr = Expr(:module, true, mod, test_content)
 
