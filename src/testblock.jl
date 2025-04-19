@@ -127,6 +127,8 @@ function pick_testset(
         "{1}",
         "--preview", # Preview show the relevant testset.
         "$(bat_preview)",
+        "--header",
+        "Selecting testset from filtered test files",
         "--query", # Initial query on the testset names.
         testset_query,
     ]
