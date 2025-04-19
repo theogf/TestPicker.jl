@@ -65,6 +65,7 @@ function run_test_files(files::AbstractVector{<:AbstractString}, pkg::PackageSpe
     end
 end
 
+"Build and evaluate the expression for the given test file."
 function run_test_file(file::AbstractString, pkg::PackageSpec)
     testset_name = "$(pkg.name) - $(file)"
     ex = quote
