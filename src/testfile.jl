@@ -4,13 +4,15 @@ function find_related_testfile(query::AbstractString, pkg::PackageSpec=current_p
     # Run fzf to get a relevant file.
     fzf_args = [
         "-m", # Allow multiple choices.
-        "--preview",
+        "--preview", # Preview the given file with bat.
         "$(get_bat_path()) --color=always --style=numbers {-1}",
-        "--query",
+        "--header",
+        "Selecting test file(s)",
+        "--query", # Initial file query.
         query,
     ]
     cmd = `$(fzf) $(fzf_args)`
-    readlines(
+    files = readlines(
         pipeline(Cmd(cmd; ignorestatus=true, dir=root); stdin=IOBuffer(join(files, '\n')))
     )
     if isempty(files)

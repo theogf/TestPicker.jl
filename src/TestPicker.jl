@@ -10,7 +10,6 @@ using Pkg.Types: Context
 using REPL
 using REPL: LineEdit, Terminals
 using Revise: Revise
-using ripgrep_jll: rg
 using Test
 using TestEnv
 using TestEnv: TestEnvError, get_test_dir, isinstalled!
