@@ -2,26 +2,17 @@
 function find_related_testfile(query::AbstractString, pkg::PackageSpec=current_pkg())
     root, files = get_test_files(pkg)
     # Run fzf to get a relevant file.
-    files = fzf() do fzf_exe
-        bat() do bat_exe
-            cmd = Cmd(
-                String[
-                    fzf_exe,
-                    "--preview",
-                    "$(bat_exe) --color=always --style=numbers {-1}",
-                    "-m",
-                    "--query",
-                    query,
-                ],
-            )
-            readlines(
-                pipeline(
-                    Cmd(cmd; ignorestatus=true, dir=root);
-                    stdin=IOBuffer(join(files, '\n')),
-                ),
-            )
-        end
-    end
+    fzf_args = [
+        "-m", # Allow multiple choices.
+        "--preview",
+        "$(get_bat_path()) --color=always --style=numbers {-1}",
+        "--query",
+        query,
+    ]
+    cmd = `$(fzf) $(fzf_args)`
+    readlines(
+        pipeline(Cmd(cmd; ignorestatus=true, dir=root); stdin=IOBuffer(join(files, '\n')))
+    )
     if isempty(files)
         @debug "Could not find any relevant files with query \"$query\"."
         files
@@ -69,13 +60,6 @@ function run_test_files(files::AbstractVector{<:AbstractString}, pkg::PackageSpe
         else
             run_test_file(file, pkg)
         end
-    end
-end
-
-function store_testset(path::AbstractString, testset::TestSetException)
-    testset_map = Dict()
-    for test in testset.errors_and_fails
-        d[test] = test
     end
 end
 

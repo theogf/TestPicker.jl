@@ -37,11 +37,6 @@ function get_testsets_with_preambles!(
     end
 end
 
-"Build the command line function to be run by `fzf` to preview the relevant code lines."
-function build_preview_arg(rg::String, bat::String)
-    return "\$(echo {} | $rg \"\\|\\s+(.*):(\\d*)-(\\d*)\" -or \'$bat --color=always --line-range=\$2:\$3 \$1\')"
-end
-
 "Fetch the last leaf from the given node to try to get the ending line of the the testset block."
 function last_leaf(node)
     if isempty(JuliaSyntax.children(node))
@@ -57,14 +52,12 @@ Run a non-interactive command that return all the files getting the match on the
 function get_matching_files(
     file_query::AbstractString, test_files::AbstractVector{<:AbstractString}
 )
-    fzf() do exe
-        readlines(
-            pipeline(
-                Cmd(`$(exe) --filter $(file_query)`; ignorestatus=true);
-                stdin=IOBuffer(join(test_files, '\n')),
-            ),
-        )
-    end
+    return readlines(
+        pipeline(
+            Cmd(`$(fzf()) --filter $(file_query)`; ignorestatus=true);
+            stdin=IOBuffer(join(test_files, '\n')),
+        ),
+    )
 end
 
 """
@@ -109,44 +102,36 @@ function build_file_testset_map(
         map(
             collect(keys(full_map))
         ) do (; testset_name, file_name, line_start, line_end)
-            "$(rpad(testset_name, max_testset_length + 2)) | $(lpad(file_name,  max_filename_length + 2)):$(line_start)-$(line_end)"
+            visible_text = "$(rpad(testset_name, max_testset_length + 2)) | $(lpad(file_name,  max_filename_length + 2)):$(line_start)-$(line_end)"
+            join([visible_text, file_name, line_start, line_end], separator())
         end .=> keys(full_map),
     )
     return full_map, tabled_keys
 end
 
 """
-Call `fzf` again to chose which testset to evaluate. The preview is done using `rg` and `bat`.
+Call `fzf` again to chose which testset to evaluate. The preview is done using `bat`.
 """
 function pick_testset(
     tabled_keys::Dict, testset_query::AbstractString, root::AbstractString
 )
+    bat_preview = "$(get_bat_path()) --color always --line-range {3}:{4} {2}"
     # Leave the user the choice of a testset.
-    rg() do rg_exe
-        fzf() do fzf_exe
-            bat() do bat_exe
-                cmd = Cmd(
-                    String[
-                        fzf_exe,
-                        "-m", # Multiple choice
-                        "--preview",
-                        build_preview_arg(rg_exe, bat_exe),
-                        "--query",
-                        testset_query,
-                    ],
-                )
-                readlines(
-                    pipeline(
-                        addenv(
-                            Cmd(cmd; ignorestatus=true, dir=root),
-                            "SHELL" => Sys.which("bash"),
-                        );
-                        stdin=IOBuffer(join(keys(tabled_keys), '\n')),
-                    ),
-                )
-            end
-        end
-    end
+    args = [
+        "-m", # Multiple choice
+        "-d", #
+        "$(separator())",
+        "--nth", # Limit search scope to visible text.
+        "1",
+        "--with-nth", # Only show visible text.
+        "{1}",
+        "--preview", # Preview show the relevant testset.
+        "$(bat_preview)",
+        "--query", # Initial query on the testset names.
+        testset_query,
+    ]
+    cmd = Cmd(`$(fzf()) $(args)`; ignorestatus=true, dir=root)
+    return readlines(pipeline(cmd; stdin=IOBuffer(join(keys(tabled_keys), '\n'))))
 end
 
 function build_testinfo_list(choices, full_map, tabled_keys)
