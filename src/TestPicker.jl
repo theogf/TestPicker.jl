@@ -1,6 +1,6 @@
 module TestPicker
 
-using bat_jll: bat
+using bat_jll: get_bat_path
 using fzf_jll: fzf
 using JuliaSyntax
 using InteractiveUtils: editor
@@ -10,13 +10,13 @@ using Pkg.Types: Context
 using REPL
 using REPL: LineEdit, Terminals
 using Revise: Revise
-using ripgrep_jll: rg
 using Test
 using TestEnv
 using TestEnv: TestEnvError, get_test_dir, isinstalled!
 
 export clear_testenv_cache
 
+"Struct containing a ran object, either a testset or a file."
 struct TestInfo
     ex::Expr
     filename::String
