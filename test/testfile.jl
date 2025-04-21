@@ -1,7 +1,7 @@
 using Test
 using Pkg.Types: PackageSpec
 using TestPicker
-using TestPicker: EvalTests, get_test_files, run_test_file
+using TestPicker: EvalTest, get_test_files, run_test_file
 
 @testset "Get test files" begin
     path = pkgdir(TestPicker)
