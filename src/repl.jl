@@ -2,6 +2,7 @@
 
 test_mode_prompt() = "test> "
 
+"Trigger key to get into test mode."
 const TESTMODE_TRIGGER = '!'
 
 # Initialize the pager mode in the `repl`.
@@ -37,6 +38,7 @@ function init_test_repl_mode(repl::AbstractREPL)
     return nothing
 end
 
+"Create an additional repl mode for testing to the given `repl`."
 function create_repl_test_mode(repl::AbstractREPL, main::LineEdit.Prompt)
     test_mode = LineEdit.Prompt(
         test_mode_prompt;
@@ -94,7 +96,8 @@ end
 
 @enum QueryType TestFileQuery TestsetQuery LatestEval InspectResults UnmatchedQuery
 
-function identify_query(input::String)
+"Identify the type of query based on the input."
+function identify_query(input::AbstractString)
     if strip(input) == "-"
         if isnothing(LATEST_EVAL[])
             @error "No test evaluated yet (reset with every session)."
@@ -125,9 +128,9 @@ function test_mode_do_cmd(repl::AbstractREPL, input::String)
     @debug "Running $(test_type) with inputs $(inputs...)"
 
     if test_type == TestFileQuery
-        find_and_run_test_file(first(inputs))
+        fzf_testfile(first(inputs))
     elseif test_type == TestsetQuery
-        select_and_run_testset(inputs...)
+        fzf_testset(inputs...)
     elseif test_type == LatestEval
         for expr in inputs
             eval_in_module(expr, current_pkg())

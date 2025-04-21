@@ -1,10 +1,10 @@
-const RESULT_PATH = first(mktemp())
+const RESULT_PATH = mktempdir()
 
 "Separator used by `fzf` to distinguish the different data components."
 separator() = "@@@@@"
 
 "Utility function to adapt the size of the text width and line position."
-function get_preview_dimension(terminal::Terminals.TextTerminal)
+function get_preview_dimension(terminal::Terminals.TextTerminal=Base.active_repl.t)
     return (;
         height=Terminals.height(terminal) - 8, width=Terminals.width(terminal) ÷ 2 - 4
     )
@@ -17,12 +17,19 @@ You can edit the selected test with `Ctrl+e` or inspect the stacktrace for error
 It is also possible to inspect the stacktrace as a list with a preview of the source when possible and
 `Ctrl+e` edit the source of the current trace.
 """
-function visualize_test_results(repl::AbstractREPL=Base.active_repl)
+function visualize_test_results(
+    repl::AbstractREPL=Base.active_repl, pkg::PackageSpec=current_pkg()
+)
     editor_cmd = join(editor(), ' ')
+    results_path = pkg_results_path(pkg)
+    if !isfile(results_path)
+        @warn "No results found, results will not be available until you get failures or errors from your tests."
+        return nothing
+    end
     terminal = repl.t
     while true
         dims = get_preview_dimension(terminal)
-        bat_preview = "echo {3} | $(get_bat_path()) --color=always --style=plain --terminal-width=$(dims.width)"
+        bat_preview = "echo {3} | $(get_bat_path()) --color=always --style=plain --wrap character --terminal-width=$(dims.width)"
         fzf_args = [
             "--read0",
             "--multi",
@@ -39,11 +46,12 @@ function visualize_test_results(repl::AbstractREPL=Base.active_repl)
             "--bind",
             "ctrl-e:execute($(editor_cmd) {2})",
         ]
-        cmd = `$(fzf) $(fzf_args)`
+        cmd_list = `$(fzf) $(fzf_args)`
         picked_val = chomp(
             read(
                 pipeline(
-                    Cmd(cmd; ignorestatus=true); stdin=IOBuffer(read(RESULT_PATH, String))
+                    Cmd(cmd_list; ignorestatus=true);
+                    stdin=IOBuffer(read(results_path, String)),
                 ),
                 String,
             ),
@@ -52,11 +60,11 @@ function visualize_test_results(repl::AbstractREPL=Base.active_repl)
         isempty(picked_val) && return nothing
 
         # We fetch the data from the picked test.
-        test, _, text = split(picked_val, separator())
+        test, _, text, context = split(picked_val, separator())
 
         # We try to obtain the stack lines.
         stack_lines = split(text, '\n')
-        start_stack = findfirst(x -> !isnothing(match(r"^ \[\d+\]", x)), stack_lines)
+        start_stack = findfirst(x -> !isnothing(match(r"^\s*\[\d+\]", x)), stack_lines)
         # This happens for fail tests that don't have stacktraces.
         isnothing(start_stack) && continue
 
@@ -96,8 +104,8 @@ function visualize_test_results(repl::AbstractREPL=Base.active_repl)
             separator(),
         ]
 
-        cmd = `$(fzf()) $(fzf_args)`
-        run(pipeline(Cmd(cmd; ignorestatus=true); stdin=IOBuffer(recut_vals)))
+        cmd_stacktrace = `$(fzf()) $(fzf_args)`
+        run(pipeline(Cmd(cmd_stacktrace; ignorestatus=true); stdin=IOBuffer(recut_vals)))
     end
 end
 
@@ -107,13 +115,29 @@ function remove_ansi(s::AbstractString)
     return replace(s, reg => "")
 end
 
+function list_view(test::Test.Fail)
+    return test.orig_expr
+end
+
+function list_view(test::Test.Error)
+    if test.test_type == :nontest_error
+        "Exception outside of @test"
+    else
+        test.orig_expr
+    end
+end
+
 "We connect the error with the backtrace to be previewed."
 function preview_content(test::Test.Error)
-    return test.value * test.backtrace
+    return join((test.value, test.backtrace), '\n')
 end
 
 function preview_content(test::Test.Fail)
     return test.data
+end
+
+function context(t::TestInfo)
+    return t.filename * (isempty(t.testset) ? "" : " - $(t.testset)")
 end
 
 "Obtain the source from the LineNumberNode."
@@ -121,9 +145,35 @@ function clean_source(source::LineNumberNode)
     return strip(strip(strip(string(source), '#'), '='))
 end
 
-function save_test_results(testset::Test.TestSetException)
+function pkg_results_path(pkg::PackageSpec)
+    mkpath(RESULT_PATH)
+    return joinpath(RESULT_PATH, pkg.name * " - " * string(pkg.uuid) * ".log")
+end
+
+"This empty the file before appending new results."
+function clean_results_file(pkg::PackageSpec)
+    return write(pkg_results_path(pkg), "")
+end
+
+"Append test results from the given testset."
+function save_test_results(
+    testset::Test.TestSetException, testinfo::TestInfo, pkg::PackageSpec
+)
+    path = pkg_results_path(pkg)
     error_content = map(testset.errors_and_fails) do test
-        join([test.orig_expr, clean_source(test.source), preview_content(test)], separator())
+        join(
+            [
+                list_view(test),
+                clean_source(test.source),
+                preview_content(test),
+                context(testinfo),
+            ],
+            separator(),
+        )
     end
-    return write(RESULT_PATH, join(error_content, '\0'))
+    touch(path)
+    open(path, "a+") do io
+        iszero(filesize(path)) || write(io, '\0')
+        write(io, join(error_content, '\0'))
+    end
 end

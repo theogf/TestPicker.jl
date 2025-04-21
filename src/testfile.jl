@@ -1,5 +1,5 @@
 "Find all test files that are close to `query`."
-function find_related_testfile(query::AbstractString, pkg::PackageSpec=current_pkg())
+function select_test_files(query::AbstractString, pkg::PackageSpec=current_pkg())
     root, files = get_test_files(pkg)
     # Run fzf to get a relevant file.
     fzf_args = [
@@ -44,9 +44,9 @@ function get_test_files(pkg::PackageSpec=current_pkg())
 end
 
 "Run fzf with the given input and if the file is a valid one run the test with the Test environment."
-function find_and_run_test_file(query::AbstractString)
+function fzf_testfile(query::AbstractString)
     pkg = current_pkg()
-    files = find_related_testfile(query, pkg)
+    files = select_test_files(query, pkg)
     return run_test_files(files, pkg)
 end
 
@@ -54,7 +54,8 @@ function run_test_files(files::AbstractVector{<:AbstractString}, pkg::PackageSpe
     # We return early to not empty the LATEST_EVAL
     isempty(files) && return nothing
     # Reset the latest eval data.
-    LATEST_EVAL[] = TestInfo[]
+    LATEST_EVAL[] = EvalTest[]
+    clean_results_file(pkg)
     for file in files
         if isempty(file)
         elseif !isfile(file)
@@ -68,6 +69,7 @@ end
 "Build and evaluate the expression for the given test file."
 function run_test_file(file::AbstractString, pkg::PackageSpec)
     testset_name = "$(pkg.name) - $(file)"
+    test_info = TestInfo(file, "", 0)
     ex = quote
         using TestPicker: TestPicker
         try
@@ -76,10 +78,10 @@ function run_test_file(file::AbstractString, pkg::PackageSpec)
             end
         catch e
             !(e isa TestSetException) && rethrow()
-            TestPicker.save_test_results(e)
+            TestPicker.save_test_results(e, $(test_info), $(pkg))
         end
     end
-    test = TestInfo(ex, file, "", 0)
+    test = EvalTest(ex, test_info)
     if !isnothing(LATEST_EVAL[])
         push!(LATEST_EVAL[], test)
     else

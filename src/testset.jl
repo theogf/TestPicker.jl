@@ -4,6 +4,7 @@ function is_testset(node::SyntaxNode)
            Expr(first(JuliaSyntax.children(node))) == Symbol("@testset")
 end
 
+"Check if a statement qualifies as a preamble."
 function is_preamble(node::SyntaxNode)
     ex = Expr(node)
     Meta.isexpr(ex, :call) && return true
@@ -14,7 +15,7 @@ function is_preamble(node::SyntaxNode)
     return false
 end
 
-"Fetch all the top nodes from `file` and split them between a `preamble` and `testsets`."
+"Fetch all the nodes from the given `file` and for each testset (included nested ones) collect all preamble statements (see [`is_preamble`](@ref))."
 function get_testsets_with_preambles(file::AbstractString)
     root = parseall(SyntaxNode, read(file, String); filename=file)
     testsets_with_preambles = Vector{Pair{SyntaxNode,Vector{SyntaxNode}}}()
@@ -34,15 +35,6 @@ function get_testsets_with_preambles!(
                 push!(preamble, node)
             end
         end
-    end
-end
-
-"Fetch the last leaf from the given node to try to get the ending line of the the testset block."
-function last_leaf(node)
-    if isempty(JuliaSyntax.children(node))
-        node
-    else
-        last_leaf(last(JuliaSyntax.children(node)))
     end
 end
 
@@ -136,18 +128,27 @@ function pick_testset(
     return readlines(pipeline(cmd; stdin=IOBuffer(join(keys(tabled_keys), '\n'))))
 end
 
-function build_testinfo_list(choices, full_map, tabled_keys)
+function build_testset_list(choices, full_map, tabled_keys, pkg::PackageSpec)
     map(choices) do choice
         testset_info = tabled_keys[choice]
         testset, preamble = full_map[testset_info]
-        ex = Expr(:block, Expr.(preamble)..., Expr(testset))
         (; testset_name, file_name, line_start) = testset_info
-        TestInfo(ex, file_name, testset_name, line_start)
+        test_info = TestInfo(file_name, testset_name, line_start)
+        tried_testset = quote
+            try
+                $(Expr(testset))
+            catch e
+                !(e isa TestSetException) && rethrow()
+                TestPicker.save_test_results(e, $(test_info), $(pkg))
+            end
+        end
+        ex = Expr(:block, Expr.(preamble)..., tried_testset)
+        EvalTest(ex, test_info)
     end
 end
 
 "Given a `fuzzy_file` query and a testset `query` return all possible testset that match both the file and the testset names, provide a choice and execute it."
-function select_and_run_testset(fuzzy_file::AbstractString, fuzzy_testset::AbstractString)
+function fzf_testset(fuzzy_file::AbstractString, fuzzy_testset::AbstractString)
     pkg = current_pkg()
     root, test_files = get_test_files(pkg)
     # We fetch all valid test files.
@@ -157,7 +158,8 @@ function select_and_run_testset(fuzzy_file::AbstractString, fuzzy_testset::Abstr
 
     choices = pick_testset(tabled_keys, fuzzy_testset, root)
     if !isempty(choices)
-        tests = build_testinfo_list(choices, full_map, tabled_keys)
+        tests = build_testset_list(choices, full_map, tabled_keys, pkg)
+        clean_results_file(pkg)
         LATEST_EVAL[] = tests
         for test in tests
             eval_in_module(test, pkg)

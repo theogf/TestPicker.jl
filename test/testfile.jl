@@ -1,7 +1,7 @@
 using Test
 using Pkg.Types: PackageSpec
 using TestPicker
-using TestPicker: TestInfo, get_test_files, run_test_file
+using TestPicker: EvalTest, get_test_files, run_test_file
 
 @testset "Get test files" begin
     path = pkgdir(TestPicker)
@@ -26,7 +26,7 @@ end
     @test_logs (:info, "Executing test file sandbox/test-a.jl") run_test_file(
         "sandbox/test-a.jl", pkg_spec
     )
-    @test TestPicker.LATEST_EVAL[] isa Vector{TestInfo}
-    testinfo = only(TestPicker.LATEST_EVAL[])
-    @test testinfo.filename == "sandbox/test-a.jl"
+    @test TestPicker.LATEST_EVAL[] isa Vector{EvalTest}
+    evaltest = only(TestPicker.LATEST_EVAL[])
+    @test evaltest.info.filename == "sandbox/test-a.jl"
 end
