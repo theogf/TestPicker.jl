@@ -9,9 +9,16 @@
 
 Simple fuzzy test picker to run a unique test file or test block from the REPL instead of the whole testsuite.
 
+## Explanation
+
+`TestPicker` is meant to be a wrapper tool around the existing standard `Test.jl` library from Julia.
+**It does not require modifying your existing tests or use a different macro, however it expects that every test file you have under your `test/` folder is self-contained!**
+
+That means you will need to import all the required packages for every test file, as well as any relevant test tooling.
+
 ## Install
 
-Once this package is registered, you can do 
+Run
 
 ```
 ] add TestPicker
@@ -101,28 +108,11 @@ You can edit the selected test with `Ctrl+e` or inspect the stacktrace for error
 It is also possible to inspect the stacktrace as a list with a preview of the source when possible and
 `Ctrl+e` edit the source of the current trace.
 
-### Execution
+### Execution 
 
-- All selections will be run inside a module, in a similar fashion to [`SafeTestsets.jl`](https://github.com/YingboMa/SafeTestsets.jl).
-- Before running any selection, [`TestEnv.jl`](https://github.com/JuliaTesting/TestEnv.jl) `activate()` is used to mimick the `Pkg.test()` behaviour.
-
-The syntax is the following
-
-```julia-repl
-test> fuzzy-file-name:fuzzy-test-set-name
-```
-
-which will give you e.g. the following selection
-
-```
-"I am another testset  |    test-b.jl:6
-"I am a testset"       |    test-a.jl:3
-```
-
-### Execution
-s- 
-All selection will be run inside a module, in a similar fashion to [`SafeTestsets.jl`]().
--Before running any selection, [`TestEnv.jl`]() `activate()` is us to mimick the `Pkg.test()` behaviour. The original environment is restored afterwards, regardless of the outcome.
+- All selections will be run inside a module, in a similar fashion to [`SafeTestsets.jl`]().
+- Before running any selection, [`TestEnv.jl`]() `activate()` is us to mimick the `Pkg.test()` behaviour. The original environment is restored afterwards, regardless of the outcome.
+- The evaluation will stop if an error happens **outside** of a testset.
 
 ## Known issues
 
