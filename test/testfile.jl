@@ -27,6 +27,6 @@ end
         "sandbox/test-a.jl", pkg_spec
     )
     @test TestPicker.LATEST_EVAL[] isa Vector{EvalTest}
-    testinfo = only(TestPicker.LATEST_EVAL[])
-    @test testinfo.filename == "sandbox/test-a.jl"
+    evaltest = only(TestPicker.LATEST_EVAL[])
+    @test evaltest.info.filename == "sandbox/test-a.jl"
 end
