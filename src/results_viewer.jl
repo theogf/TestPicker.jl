@@ -60,11 +60,11 @@ function visualize_test_results(
         isempty(picked_val) && return nothing
 
         # We fetch the data from the picked test.
-        test, _, text = split(picked_val, separator())
+        test, _, text, context = split(picked_val, separator())
 
         # We try to obtain the stack lines.
         stack_lines = split(text, '\n')
-        start_stack = findfirst(x -> !isnothing(match(r"^ \[\d+\]", x)), stack_lines)
+        start_stack = findfirst(x -> !isnothing(match(r"^\s*\[\d+\]", x)), stack_lines)
         # This happens for fail tests that don't have stacktraces.
         isnothing(start_stack) && continue
 
@@ -115,6 +115,18 @@ function remove_ansi(s::AbstractString)
     return replace(s, reg => "")
 end
 
+function list_view(test::Test.Fail)
+    return test.orig_expr
+end
+
+function list_view(test::Test.Error)
+    if test.test_type == :nontest_error
+        "Exception outside of @test"
+    else
+        test.orig_expr
+    end
+end
+
 "We connect the error with the backtrace to be previewed."
 function preview_content(test::Test.Error)
     return join((test.value, test.backtrace), '\n')
@@ -151,7 +163,7 @@ function save_test_results(
     error_content = map(testset.errors_and_fails) do test
         join(
             [
-                test.orig_expr,
+                list_view(test),
                 clean_source(test.source),
                 preview_content(test),
                 context(testinfo),
@@ -161,6 +173,7 @@ function save_test_results(
     end
     touch(path)
     open(path, "a+") do io
+        iszero(filesize(path)) || write(io, '\0')
         write(io, join(error_content, '\0'))
     end
 end
