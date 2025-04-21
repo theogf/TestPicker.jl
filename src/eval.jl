@@ -45,6 +45,7 @@ function eval_in_module((; ex, info)::EvalTest, pkg::PackageSpec)
     end
 
     test_content = prepend_ex(ex, :(using TestPicker.Test))
+    test_content = prepend_ex(test_content, :(using TestPicker: TestPicker))
 
     module_expr = Expr(:module, true, mod, test_content)
 

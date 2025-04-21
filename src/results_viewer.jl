@@ -47,13 +47,8 @@ function visualize_test_results(
             "ctrl-e:execute($(editor_cmd) {2})",
         ]
         cmd = `$(fzf) $(fzf_args)`
-        picked_val = chomp(
-            read(
-                pipeline(
-                    Cmd(cmd; ignorestatus=true); stdin=IOBuffer(read(RESULT_PATH, String))
-                ),
-                String,
-            ),
+        picked_val = readchomp(
+            pipeline(Cmd(cmd; ignorestatus=true); stdin=IOBuffer(read(path, String)))
         )
         # If nothing is picked we exit the loop.
         isempty(picked_val) && return nothing
@@ -133,7 +128,8 @@ function clean_source(source::LineNumberNode)
 end
 
 function pkg_results_path(pkg::PackageSpec)
-    return joinpath(RESULT_PATH, pkg.name * string(pkg.uuid) * ".log")
+    mkpath(RESULT_PATH)
+    return joinpath(RESULT_PATH, pkg.name * " - " * string(pkg.uuid) * ".log")
 end
 
 "This empty the file before appending new results."
@@ -157,7 +153,8 @@ function save_test_results(
             separator(),
         )
     end
-    open(path, "a") do io
+    touch(path)
+    open(path, "a+") do io
         write(io, join(error_content, '\0'))
     end
 end
