@@ -29,7 +29,7 @@ const LATEST_EVAL = Ref{Union{Nothing,Vector{TestInfo}}}(nothing)
 include("common.jl")
 include("eval.jl")
 include("testfile.jl")
-include("testblock.jl")
+include("testset.jl")
 include("repl.jl")
 include("results_viewer.jl")
 

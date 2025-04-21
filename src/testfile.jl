@@ -1,5 +1,5 @@
 "Find all test files that are close to `query`."
-function find_related_testfile(query::AbstractString, pkg::PackageSpec=current_pkg())
+function select_test_files(query::AbstractString, pkg::PackageSpec=current_pkg())
     root, files = get_test_files(pkg)
     # Run fzf to get a relevant file.
     fzf_args = [
@@ -44,9 +44,9 @@ function get_test_files(pkg::PackageSpec=current_pkg())
 end
 
 "Run fzf with the given input and if the file is a valid one run the test with the Test environment."
-function find_and_run_test_file(query::AbstractString)
+function fzf_testfile(query::AbstractString)
     pkg = current_pkg()
-    files = find_related_testfile(query, pkg)
+    files = select_test_files(query, pkg)
     return run_test_files(files, pkg)
 end
 

@@ -4,6 +4,7 @@ function is_testset(node::SyntaxNode)
            Expr(first(JuliaSyntax.children(node))) == Symbol("@testset")
 end
 
+"Check if a statement qualifies as a preamble."
 function is_preamble(node::SyntaxNode)
     ex = Expr(node)
     Meta.isexpr(ex, :call) && return true
@@ -14,7 +15,7 @@ function is_preamble(node::SyntaxNode)
     return false
 end
 
-"Fetch all the top nodes from `file` and split them between a `preamble` and `testsets`."
+"Fetch all the nodes from the given `file` and for each testset (included nested ones) collect all preamble statements (see [`is_preamble`](@ref))."
 function get_testsets_with_preambles(file::AbstractString)
     root = parseall(SyntaxNode, read(file, String); filename=file)
     testsets_with_preambles = Vector{Pair{SyntaxNode,Vector{SyntaxNode}}}()
@@ -34,15 +35,6 @@ function get_testsets_with_preambles!(
                 push!(preamble, node)
             end
         end
-    end
-end
-
-"Fetch the last leaf from the given node to try to get the ending line of the the testset block."
-function last_leaf(node)
-    if isempty(JuliaSyntax.children(node))
-        node
-    else
-        last_leaf(last(JuliaSyntax.children(node)))
     end
 end
 
@@ -147,7 +139,7 @@ function build_testinfo_list(choices, full_map, tabled_keys)
 end
 
 "Given a `fuzzy_file` query and a testset `query` return all possible testset that match both the file and the testset names, provide a choice and execute it."
-function select_and_run_testset(fuzzy_file::AbstractString, fuzzy_testset::AbstractString)
+function fzf_testset(fuzzy_file::AbstractString, fuzzy_testset::AbstractString)
     pkg = current_pkg()
     root, test_files = get_test_files(pkg)
     # We fetch all valid test files.
