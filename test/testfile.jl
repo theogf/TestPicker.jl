@@ -26,7 +26,7 @@ end
     @test_logs (:info, "Executing test file sandbox/test-a.jl") run_test_file(
         "sandbox/test-a.jl", pkg_spec
     )
-    @test TestPicker.LATEST_EVAL[] isa Vector{TestInfo}
+    @test TestPicker.LATEST_EVAL[] isa Vector{EvalTest}
     testinfo = only(TestPicker.LATEST_EVAL[])
     @test testinfo.filename == "sandbox/test-a.jl"
 end

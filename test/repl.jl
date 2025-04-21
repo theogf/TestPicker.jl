@@ -33,7 +33,7 @@ end
     @test_logs (:error, "No test evaluated yet (reset with every session).") identify_query(
         "-"
     )
-    TestPicker.LATEST_EVAL[] = TestPicker.TestInfo[]
+    TestPicker.LATEST_EVAL[] = TestPicker.EvalTest[]
     @test identify_query("-") == (LatestEval, TestPicker.LATEST_EVAL[])
     @test identify_query(":") == (TestsetQuery, ("", ""))
     @test identify_query("foo") == (TestFileQuery, ("foo", ""))

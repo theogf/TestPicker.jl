@@ -54,7 +54,7 @@ function run_test_files(files::AbstractVector{<:AbstractString}, pkg::PackageSpe
     # We return early to not empty the LATEST_EVAL
     isempty(files) && return nothing
     # Reset the latest eval data.
-    LATEST_EVAL[] = TestInfo[]
+    LATEST_EVAL[] = EvalTest[]
     for file in files
         if isempty(file)
         elseif !isfile(file)
@@ -68,6 +68,7 @@ end
 "Build and evaluate the expression for the given test file."
 function run_test_file(file::AbstractString, pkg::PackageSpec)
     testset_name = "$(pkg.name) - $(file)"
+    test_info = TestInfo(file, "", 0)
     ex = quote
         using TestPicker: TestPicker
         try
@@ -76,10 +77,10 @@ function run_test_file(file::AbstractString, pkg::PackageSpec)
             end
         catch e
             !(e isa TestSetException) && rethrow()
-            TestPicker.save_test_results(e)
+            TestPicker.save_test_results(e, $(test_info), $(pkg))
         end
     end
-    test = TestInfo(ex, file, "", 0)
+    test = EvalTest(ex, test_info)
     if !isnothing(LATEST_EVAL[])
         push!(LATEST_EVAL[], test)
     else

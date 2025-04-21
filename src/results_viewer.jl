@@ -1,4 +1,4 @@
-const RESULT_PATH = first(mktemp())
+const RESULT_PATH = mktempdir()
 
 "Separator used by `fzf` to distinguish the different data components."
 separator() = "@@@@@"
@@ -17,8 +17,15 @@ You can edit the selected test with `Ctrl+e` or inspect the stacktrace for error
 It is also possible to inspect the stacktrace as a list with a preview of the source when possible and
 `Ctrl+e` edit the source of the current trace.
 """
-function visualize_test_results(repl::AbstractREPL=Base.active_repl)
+function visualize_test_results(
+    repl::AbstractREPL=Base.active_repl, pkg::PackageSpec=current_pkg()
+)
     editor_cmd = join(editor(), ' ')
+    path = pkg_results_path(pkg)
+    if !isfile(path)
+        @warn "No results found, results will not be available until you get failures or errors from your tests."
+        return nothing
+    end
     terminal = repl.t
     while true
         dims = get_preview_dimension(terminal)
@@ -116,14 +123,41 @@ function preview_content(test::Test.Fail)
     return test.data
 end
 
+function context(t::TestInfo)
+    return t.filename * (isempty(t.testset) ? "" : " - $(t.testset)")
+end
+
 "Obtain the source from the LineNumberNode."
 function clean_source(source::LineNumberNode)
     return strip(strip(strip(string(source), '#'), '='))
 end
 
-function save_test_results(testset::Test.TestSetException)
+function pkg_results_path(pkg::PackageSpec)
+    return joinpath(RESULT_PATH, pkg.name * string(pkg.uuid) * ".log")
+end
+
+"This empty the file before appending new results."
+function clean_results_file(pkg::PackageSpec)
+    return write(pkg_results_path(pkg), "")
+end
+
+"Append test results from the given testset."
+function save_test_results(
+    testset::Test.TestSetException, testinfo::TestInfo, pkg::PackageSpec
+)
+    path = pkg_results_path(pkg)
     error_content = map(testset.errors_and_fails) do test
-        join([test.orig_expr, clean_source(test.source), preview_content(test)], separator())
+        join(
+            [
+                test.orig_expr,
+                clean_source(test.source),
+                preview_content(test),
+                context(testinfo),
+            ],
+            separator(),
+        )
     end
-    return write(RESULT_PATH, join(error_content, '\0'))
+    open(path, "a") do io
+        write(io, join(error_content, '\0'))
+    end
 end

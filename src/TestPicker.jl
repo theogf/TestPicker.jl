@@ -16,15 +16,18 @@ using TestEnv: TestEnvError, get_test_dir, isinstalled!
 
 export clear_testenv_cache
 
-"Struct containing a ran object, either a testset or a file."
 struct TestInfo
-    ex::Expr
     filename::String
     testset::String
     line::Int
 end
+"Struct containing a ran object, either a testset or a file."
+struct EvalTest
+    ex::Expr
+    info::TestInfo
+end
 
-const LATEST_EVAL = Ref{Union{Nothing,Vector{TestInfo}}}(nothing)
+const LATEST_EVAL = Ref{Union{Nothing,Vector{EvalTest}}}(nothing)
 
 include("common.jl")
 include("eval.jl")

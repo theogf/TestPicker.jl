@@ -18,8 +18,8 @@ function prepend_ex(ex, new_line::Expr)
 end
 
 "Evaluate `ex` scoped in a `Module`, while activating the test environment of `pkg`."
-function eval_in_module(test::TestInfo, pkg::PackageSpec)
-    (; ex, filename, testset, line) = test
+function eval_in_module((; ex, info)::EvalTest, pkg::PackageSpec)
+    (; filename, testset, line) = info
     mod = gensym(pkg.name)
     revise_ex = quote
         import TestPicker: Revise
