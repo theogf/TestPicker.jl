@@ -55,6 +55,7 @@ function run_test_files(files::AbstractVector{<:AbstractString}, pkg::PackageSpe
     isempty(files) && return nothing
     # Reset the latest eval data.
     LATEST_EVAL[] = EvalTest[]
+    clean_results_file(pkg)
     for file in files
         if isempty(file)
         elseif !isfile(file)

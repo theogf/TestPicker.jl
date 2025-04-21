@@ -4,7 +4,7 @@ const RESULT_PATH = mktempdir()
 separator() = "@@@@@"
 
 "Utility function to adapt the size of the text width and line position."
-function get_preview_dimension(terminal::Terminals.TextTerminal)
+function get_preview_dimension(terminal::Terminals.TextTerminal=Base.active_repl.t)
     return (;
         height=Terminals.height(terminal) - 8, width=Terminals.width(terminal) ÷ 2 - 4
     )
@@ -21,15 +21,15 @@ function visualize_test_results(
     repl::AbstractREPL=Base.active_repl, pkg::PackageSpec=current_pkg()
 )
     editor_cmd = join(editor(), ' ')
-    path = pkg_results_path(pkg)
-    if !isfile(path)
+    results_path = pkg_results_path(pkg)
+    if !isfile(results_path)
         @warn "No results found, results will not be available until you get failures or errors from your tests."
         return nothing
     end
     terminal = repl.t
     while true
         dims = get_preview_dimension(terminal)
-        bat_preview = "echo {3} | $(get_bat_path()) --color=always --style=plain --terminal-width=$(dims.width)"
+        bat_preview = "echo {3} | $(get_bat_path()) --color=always --style=plain --wrap character --terminal-width=$(dims.width)"
         fzf_args = [
             "--read0",
             "--multi",
@@ -46,9 +46,15 @@ function visualize_test_results(
             "--bind",
             "ctrl-e:execute($(editor_cmd) {2})",
         ]
-        cmd = `$(fzf) $(fzf_args)`
-        picked_val = readchomp(
-            pipeline(Cmd(cmd; ignorestatus=true); stdin=IOBuffer(read(path, String)))
+        cmd_list = `$(fzf) $(fzf_args)`
+        picked_val = chomp(
+            read(
+                pipeline(
+                    Cmd(cmd_list; ignorestatus=true);
+                    stdin=IOBuffer(read(results_path, String)),
+                ),
+                String,
+            ),
         )
         # If nothing is picked we exit the loop.
         isempty(picked_val) && return nothing
@@ -98,8 +104,8 @@ function visualize_test_results(
             separator(),
         ]
 
-        cmd = `$(fzf()) $(fzf_args)`
-        run(pipeline(Cmd(cmd; ignorestatus=true); stdin=IOBuffer(recut_vals)))
+        cmd_stacktrace = `$(fzf()) $(fzf_args)`
+        run(pipeline(Cmd(cmd_stacktrace; ignorestatus=true); stdin=IOBuffer(recut_vals)))
     end
 end
 
@@ -111,7 +117,7 @@ end
 
 "We connect the error with the backtrace to be previewed."
 function preview_content(test::Test.Error)
-    return test.value * test.backtrace
+    return join((test.value, test.backtrace), '\n')
 end
 
 function preview_content(test::Test.Fail)

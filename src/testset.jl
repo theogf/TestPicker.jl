@@ -159,6 +159,7 @@ function fzf_testset(fuzzy_file::AbstractString, fuzzy_testset::AbstractString)
     choices = pick_testset(tabled_keys, fuzzy_testset, root)
     if !isempty(choices)
         tests = build_testset_list(choices, full_map, tabled_keys, pkg)
+        clean_results_file(pkg)
         LATEST_EVAL[] = tests
         for test in tests
             eval_in_module(test, pkg)
