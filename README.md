@@ -16,6 +16,10 @@ Simple fuzzy test picker to run a unique test file or test block from the REPL i
 
 That means you will need to import all the required packages for every test file, as well as any relevant test tooling.
 
+For a best understanding see this small demo:
+
+[![asciicast](https://asciinema.org/a/716546.svg)](https://asciinema.org/a/716546)
+
 ## Install
 
 Run
