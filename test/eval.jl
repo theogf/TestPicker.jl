@@ -10,7 +10,7 @@ using TestPicker: TestPicker, eval_in_module, current_pkg, EvalTest, TestInfo
     )
     # Errors don't disturb the env
     @test_throws ErrorException eval_in_module(
-        TestInfo(:(error("🤯")), "eval.jl", "error", 2), pkg_spec
+        EvalTest(:(error("🤯")), TestInfo("eval.jl", "error", 2)), pkg_spec
     )
     @test isnothing(
         eval_in_module(
