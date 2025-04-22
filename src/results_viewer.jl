@@ -38,7 +38,7 @@ function visualize_test_results(
             "--header",
             "Failed and errored tests",
             "--with-nth",
-            "{1}",
+            "1",
             "-d",
             "$(separator())",
             "--preview",
