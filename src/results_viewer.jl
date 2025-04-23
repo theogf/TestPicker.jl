@@ -46,7 +46,7 @@ function visualize_test_results(
             "--bind",
             "ctrl-e:execute($(editor_cmd) {2})",
         ]
-        cmd_list = `$(fzf) $(fzf_args)`
+        cmd_list = `$(fzf()) $(fzf_args)`
         picked_val = chomp(
             read(
                 pipeline(
