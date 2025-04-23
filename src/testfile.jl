@@ -11,7 +11,7 @@ function select_test_files(query::AbstractString, pkg::PackageSpec=current_pkg()
         "--query", # Initial file query.
         query,
     ]
-    cmd = `$(fzf) $(fzf_args)`
+    cmd = `$(fzf()) $(fzf_args)`
     files = readlines(
         pipeline(Cmd(cmd; ignorestatus=true, dir=root); stdin=IOBuffer(join(files, '\n')))
     )
