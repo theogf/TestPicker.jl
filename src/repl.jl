@@ -132,8 +132,10 @@ function test_mode_do_cmd(repl::AbstractREPL, input::String)
     elseif test_type == TestsetQuery
         fzf_testset(inputs...)
     elseif test_type == LatestEval
+        pkg = current_pkg()
+        clean_results_file(pkg)
         for expr in inputs
-            eval_in_module(expr, current_pkg())
+            eval_in_module(expr, pkg)
         end
     elseif test_type == InspectResults
         visualize_test_results(repl)
