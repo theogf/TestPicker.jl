@@ -29,7 +29,7 @@ function visualize_test_results(
     terminal = repl.t
     while true
         dims = get_preview_dimension(terminal)
-        bat_preview = "echo {3} | $(get_bat_path()) --color=always --style=plain --wrap character --terminal-width=$(dims.width)"
+        bat_preview = "echo -e {3} | $(get_bat_path()) --file-name {2} --language julia --style header,grid --color always --wrap character --strip-ansi always --terminal-width $(dims.width)"
         fzf_args = [
             "--read0",
             "--multi",
