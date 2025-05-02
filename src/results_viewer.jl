@@ -172,6 +172,7 @@ function save_test_results(
         )
     end
     touch(path)
+    write(path, "")
     open(path, "a+") do io
         iszero(filesize(path)) || write(io, '\0')
         write(io, join(error_content, '\0'))
