@@ -7,7 +7,9 @@ using TestPicker:
     get_test_files,
     get_matching_files,
     build_file_testset_map,
-    pick_testset
+    pick_testset,
+    testnode_symbols,
+    is_testnode
 
 function no_indentation(s::AbstractString)
     return replace(s, r"^\s+"m => "")
@@ -24,10 +26,27 @@ end
     using Pkg
     """
 
+    s3 = """
+    @testitem "aaaa" begin
+    end
+    """
+
     root = parseall(SyntaxNode, s)
-    @test TestPicker.is_testset(only(JuliaSyntax.children(root)))
+    @test is_testnode(only(JuliaSyntax.children(root)))
     root = parseall(SyntaxNode, s2)
-    @test !TestPicker.is_testset(only(JuliaSyntax.children(root)))
+    @test !is_testnode(only(JuliaSyntax.children(root)))
+    root = parseall(SyntaxNode, s3)
+    node = only(JuliaSyntax.children(root))
+    @test !is_testnode(node)
+    @test withenv("TESTPICKER_NODES" => "@testitem") do
+        is_testnode(node)
+    end
+    @test_logs (:warn,) withenv("TESTPICKER_NODES" => "foobar") do
+        is_testnode(node)
+    end
+    @test withenv("TESTPICKER_NODES" => "@foo,@bar") do
+        testnode_symbols() == [Symbol("@testset"), Symbol("@foo"), Symbol("@bar")]
+    end
 end
 @testset "Matching files" begin
     matched_files = get_matching_files("foo", ["test-foo", "test-bar"])

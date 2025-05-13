@@ -24,7 +24,7 @@ For a best understanding see this small demo:
 
 Run
 
-```
+```julia-repl
 ] add TestPicker
 ```
 
@@ -58,7 +58,7 @@ test> subdirfile
 
 which will get you a fuzzy search, press enter and the file will be run under the test environment.
 
-```julia
+```julia-repl
 [ Info: Executing test file /home/theo/.julia/dev/TestPicker/test/test-subdir/test-file-c.jl
 ```
 
@@ -87,11 +87,27 @@ which will give you e.g. the following selection
 
 Similarly to the multiple files, you can select multiple testsets to be run and they will be run independently.
 
+### Running other test blocks than `@testset`
+
+You have the option to add any macro that follows the `@testset` syntax (e.g. `@testitem` from [`TestItems.jl`](https://github.com/julia-vscode/TestItems.jl)) by adding them to your environment as
+
+```julia
+ENV["TESTPICKER_NODES"] = "@testitem"
+```
+
+You can add mutltiple options, coma-separated.
+
+```julia
+ENV["TESTPICKER_NODES"] = "@testitem, @mycustomtestset"
+```
+
+Note that the environment must be set **before** calling `using TestPicker` is used.
+
 ### Repeating latest test
 
 After running a collection of test files and/or testsets you can just repeat the same operation by calling `-`(in the samme fashion as `cd -`):
 
-```
+```julia-repl
 test> test-a
 [ Info: Executing test file /home/theo/.julia/dev/TestPicker/test/sandbox/test-a.jl
 Test Summary:                                                        | Pass  Total  Time

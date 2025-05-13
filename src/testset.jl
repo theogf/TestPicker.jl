@@ -1,7 +1,25 @@
 "Check whether the given `SyntaxNode` is a `@testset` macro block."
-function is_testset(node::SyntaxNode)
+function is_testnode(node::SyntaxNode, testnodes::Vector{Symbol}=testnode_symbols())
     return !isempty(JuliaSyntax.children(node)) &&
-           Expr(first(JuliaSyntax.children(node))) == Symbol("@testset")
+           Expr(first(JuliaSyntax.children(node))) ∈ testnodes
+end
+
+"""
+Fetch all potential test block that can be fetched from the testset parsing.
+Other nodes than `@testset` can be added (coma separated) via `ENV["TESTPICKER_NODES"]`.
+"""
+function testnode_symbols()
+    nodes = [Symbol("@testset")]
+    if haskey(ENV, "TESTPICKER_NODES")
+        str = ENV["TESTPICKER_NODES"]
+        names = strip.(split(str, ','))
+        all(startswith("@"), names) ||
+            @warn "The following provided names under `ENV[\"TESTPICKER_NODES\"]` are not macros." non_symbols = filter(
+                !startswith("@"), names
+            )
+        append!(nodes, Symbol.(filter(startswith("@"), names)))
+    end
+    return nodes
 end
 
 "Check if a statement qualifies as a preamble."
@@ -19,18 +37,26 @@ end
 function get_testsets_with_preambles(file::AbstractString)
     root = parseall(SyntaxNode, read(file, String); filename=file)
     testsets_with_preambles = Vector{Pair{SyntaxNode,Vector{SyntaxNode}}}()
-    get_testsets_with_preambles!(testsets_with_preambles, root)
+    testnodes = testnode_symbols()
+    get_testsets_with_preambles!(testsets_with_preambles, root, testnodes)
     return testsets_with_preambles
 end
 function get_testsets_with_preambles!(
-    testsets_with_preambles, node::SyntaxNode, preamble::Vector{SyntaxNode}=SyntaxNode[]
+    testsets_with_preambles,
+    node::SyntaxNode,
+    testnodes::Vector{Symbol},
+    preamble::Vector{SyntaxNode}=SyntaxNode[],
 )
     for node in JuliaSyntax.children(node)
-        if is_testset(node)
+        if is_testnode(node, testnodes)
             push!(testsets_with_preambles, (node => copy(preamble)))
-            get_testsets_with_preambles!(testsets_with_preambles, node, copy(preamble))
+            get_testsets_with_preambles!(
+                testsets_with_preambles, node, testnodes, copy(preamble)
+            )
         else
-            get_testsets_with_preambles!(testsets_with_preambles, node, copy(preamble))
+            get_testsets_with_preambles!(
+                testsets_with_preambles, node, testnodes, copy(preamble)
+            )
             if is_preamble(node)
                 push!(preamble, node)
             end
