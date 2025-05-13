@@ -11,13 +11,13 @@ Other nodes than `@testset` can be added (coma separated) via `ENV["TESTPICKER_N
 function testnode_symbols()
     nodes = [Symbol("@testset")]
     if haskey(ENV, "TESTPICKER_NODES")
-        str = get(ENV, "TESTPICKER_NODES")
+        str = ENV["TESTPICKER_NODES"]
         names = strip.(split(str, ','))
         all(startswith("@"), names) ||
-            @warn "The following provided names under `ENV[\"TESTPICKER_NODES\"]` are not macros." filter(
+            @warn "The following provided names under `ENV[\"TESTPICKER_NODES\"]` are not macros." non_symbols = filter(
                 !startswith("@"), names
             )
-        append!(nodes, Symbol.(names))
+        append!(nodes, Symbol.(filter(startswith("@"), names)))
     end
     return nodes
 end
