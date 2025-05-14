@@ -30,6 +30,7 @@ function is_preamble(node::SyntaxNode)
     Meta.isexpr(ex, :import) && return true
     Meta.isexpr(ex, :(=)) && return true
     Meta.isexpr(ex, :macrocall) && return true
+    Meta.isexpr(ex, :function) && return true
     return false
 end
 
