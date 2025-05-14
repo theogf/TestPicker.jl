@@ -30,17 +30,21 @@ Get full collection of test files for the given package. Return the absolute pat
 the collection of test files as paths relative to it.
 """
 function get_test_files(pkg::PackageSpec=current_pkg())
+    test_dir = get_test_dir_from_pkg(pkg)
+    # Recursively get a list of julia files.
+    return test_dir,
+    mapreduce(vcat, walkdir(test_dir)) do (root, _, files)
+        relpath.(filter(endswith(".jl"), joinpath.(Ref(root), files)), Ref(test_dir))
+    end
+end
+function get_test_dir_from_pkg(pkg::PackageSpec=current_pkg())
     ctx = Context()
     isinstalled!(ctx, pkg) || throw(ArgumentError("$pkg not installed 👻"))
     test_dir = get_test_dir(ctx, pkg)
     isdir(test_dir) || error(
         "the test directory $(test_dir) does not exist, you need to activate your package environment first",
     )
-    # Recursively get a list of julia files.
-    return test_dir,
-    mapreduce(vcat, walkdir(test_dir)) do (root, _, files)
-        relpath.(filter(endswith(".jl"), joinpath.(Ref(root), files)), Ref(test_dir))
-    end
+    return test_dir
 end
 
 "Run fzf with the given input and if the file is a valid one run the test with the Test environment."
