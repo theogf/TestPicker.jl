@@ -72,6 +72,7 @@ function eval_in_module((; ex, info)::EvalTest, pkg::PackageSpec)
         end
     end
     root = get_test_dir_from_pkg(pkg)
+    # We fetch `dir` such that relative include paths still work as expected.
     dir = dirname(joinpath(root, filename))
     if !isempty(testset)
         @info "Executing testset $(testset) from $(filename):$(line)"
@@ -82,7 +83,6 @@ function eval_in_module((; ex, info)::EvalTest, pkg::PackageSpec)
         # cd acts such that also evaled expressions in `Main` are affected.
         cd(dir) do
             Core.eval(Main, revise_ex)
-            Core.eval(Main, :(println(pwd())))
             Core.eval(Main, top_ex)
         end
     finally
