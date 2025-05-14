@@ -154,9 +154,7 @@ function pick_testset(
     return readlines(pipeline(cmd; stdin=IOBuffer(join(keys(tabled_keys), '\n'))))
 end
 
-function build_testset_list(
-    choices, full_map, tabled_keys, root::AbstractString, pkg::PackageSpec
-)
+function build_testset_list(choices, full_map, tabled_keys, pkg::PackageSpec)
     map(choices) do choice
         testset_info = tabled_keys[choice]
         testset, preamble = full_map[testset_info]
@@ -170,13 +168,7 @@ function build_testset_list(
                 TestPicker.save_test_results(e, $(test_info), $(pkg))
             end
         end
-        ex = quote
-            cd($(dirname(joinpath(root, file_name)))) do
-                $(Expr.(preamble)...)
-                $(tried_testset)
-            end
-        end
-        # ex = Expr(:block, Expr.(preamble)..., tried_testset)
+        ex = Expr(:block, Expr.(preamble)..., tried_testset)
         EvalTest(ex, test_info)
     end
 end
@@ -192,7 +184,7 @@ function fzf_testset(fuzzy_file::AbstractString, fuzzy_testset::AbstractString)
 
     choices = pick_testset(tabled_keys, fuzzy_testset, root)
     if !isempty(choices)
-        tests = build_testset_list(choices, full_map, tabled_keys, root, pkg)
+        tests = build_testset_list(choices, full_map, tabled_keys, pkg)
         clean_results_file(pkg)
         LATEST_EVAL[] = tests
         for test in tests
