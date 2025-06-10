@@ -1,7 +1,7 @@
 "Check whether the given `SyntaxNode` is a `@testset` macro block."
 function is_testnode(node::SyntaxNode, testnodes::Vector{Symbol}=testnode_symbols())
-    return !isempty(JuliaSyntax.children(node)) &&
-           Expr(first(JuliaSyntax.children(node))) ∈ testnodes
+    nodes = JuliaSyntax.children(node)
+    return !isnothing(nodes) && !isempty(nodes) && Expr(first(nodes)) ∈ testnodes
 end
 
 """
@@ -48,7 +48,9 @@ function get_testsets_with_preambles!(
     testnodes::Vector{Symbol},
     preamble::Vector{SyntaxNode}=SyntaxNode[],
 )
-    for node in JuliaSyntax.children(node)
+    nodes = JuliaSyntax.children(node)
+    isnothing(nodes) && return nothing
+    for node in nodes
         if is_testnode(node, testnodes)
             push!(testsets_with_preambles, (node => copy(preamble)))
             get_testsets_with_preambles!(
