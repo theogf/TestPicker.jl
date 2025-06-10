@@ -16,7 +16,7 @@ fzf_jll = "214eeab7-80f7-51ab-84ad-2988db7cef09"
 
 [compat]
 InteractiveUtils = "1"
-JuliaSyntax = "0.4"
+JuliaSyntax = "0.4, 1"
 Pkg = "1"
 REPL = "1"
 Revise = "3"
