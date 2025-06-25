@@ -15,6 +15,7 @@ using TestEnv
 using TestEnv: TestEnvError, get_test_dir, isinstalled!
 
 export clear_testenv_cache
+export TestBlockInterface
 
 struct TestInfo
     filename::String
@@ -32,7 +33,7 @@ const LATEST_EVAL = Ref{Union{Nothing,Vector{EvalTest}}}(nothing)
 include("common.jl")
 include("eval.jl")
 include("testfile.jl")
-include("testset.jl")
+include("testblock.jl")
 include("repl.jl")
 include("results_viewer.jl")
 

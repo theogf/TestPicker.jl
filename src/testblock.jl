@@ -1,20 +1,59 @@
 """
+The `TestBlockInterface` allows you to define different type of test blocks that you would like `TestPicker`
+to find and evaluate.
+The interface is relatively simple. Assuming that you are defining your own type `struct MyTestBlock <: TestBlockInterface end`:
 
+## Required methods
+- `istestblock(::MyTestBlock, node::SyntaxNode)::Bool`: indicates whether a given `SyntaxNode` represents a desirable test block.
+- `blocklabel(::MyTestBlock, node::SyntaxNode)::String`: for a given node, produce a (preferably) unique label that will be used for filtering and display.
+
+## Optional methods
+- `preamble(::MyTestBlock)::Union{Nothing, Expr}`: eventually additional preamble that the given testblock might require. Default: `nothing`.
+- `expr_transform(::MyTestBlock, ex::Expr)::Expr`: eventually transform the test block expression into a different one. Default: `identity`.
 """
 abstract type TestBlockInterface end
 
+"""
+    istestblock(::T, node::SyntaxNode)::Bool where {T<:TestBlockInterface}
+
+Predicate on whether the node represent a test block according to its interface.
+"""
 function istestblock(::T, node::SyntaxNode) where {T<:TestBlockInterface}
     return error("`istestblock` must be implemented for type $(T).")
 end
 
+"""
+    blocklabel(::T, node::SyntaxNode)::String where {T<:TestBlockInterface}
+
+Return a (preferably) unique label given the test block as a `SyntaxNode`.
+"""
 function blocklabel(::T, node::SyntaxNode) where {T<:TestBlockInterface}
     return error("`blocklabel` must be implemented for type $(T).")
 end
 
+"""
+    preamble(::TestBlockInterface)::Union{Nothing, Expr}
+
+Return an additional preamble specific to the inferface.
+"""
 function preamble(::TestBlockInterface)
     return nothing
 end
 
+function prepend_preamble_statements(interface::TestBlockInterface, preambles::Vector{Expr})
+    interface_preamble = preamble(interface)
+    if !isnothing(interface_preamble)
+        vcat(interface_preamble, preambles)
+    else
+        preambles
+    end
+end
+
+"""
+    expr_transform(::TestBlockInterface, ex::Expr)::Expr
+
+Perform an additional transformation on the test block as an `Expr`.
+"""
 function expr_transform(::TestBlockInterface, ex::Expr)
     return ex
 end
@@ -49,6 +88,10 @@ function ispreamble(node::SyntaxNode)
     return false
 end
 
+"""
+A `SyntaxBlock` contains the test block as well as the required preamble as a collection of `SyntaxNode`.
+It can easily be converted into an evaluatable expression.
+"""
 struct SyntaxBlock
     preamble::Vector{SyntaxNode}
     testblock::SyntaxNode
@@ -102,7 +145,8 @@ function get_matching_files(
 end
 
 """
-Struct representing metadata about a testset.
+Struct representing metadata about a testblock such as its label,
+the filename is taken from, and the starting and ending line numbers.
 """
 struct TestBlockInfo
     label::String
@@ -202,7 +246,8 @@ function testblock_list(
                 TestPicker.save_test_results(e, $(test_info), $(pkg))
             end
         end
-        ex = Expr(:block, Expr.(preamble)..., tried_testset)
+        preamble_statements = prepend_interface_preamble(interface, Expr.(preamble))
+        ex = Expr(:block, preamble_statements..., tried_testset)
         EvalTest(ex, test_info)
     end
 end
