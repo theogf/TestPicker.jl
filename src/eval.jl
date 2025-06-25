@@ -17,6 +17,12 @@ function prepend_ex(ex, new_line::Expr)
     end
 end
 
+# We add this dummy macro to override the `@testitem` we encounter in tests. This will simply call `run_test` by providing the filename and testset name as filters (and assuming that the package path is available in `__pkg_path__`). We will add the path in `eval_in_module`
+macro testitem(name, args...)
+    filename = __source__.file |> string
+    :(TestItemRunner.run_tests(__pkg_path__; filter = ti -> (ti.filename == $filename && ti.name == $name))) |> esc
+end
+
 "Evaluate `ex` scoped in a `Module`, while activating the test environment of `pkg`."
 function eval_in_module((; ex, info)::EvalTest, pkg::PackageSpec)
     (; filename, testset, line) = info
@@ -44,8 +50,10 @@ function eval_in_module((; ex, info)::EvalTest, pkg::PackageSpec)
         end
     end
 
-    test_content = prepend_ex(ex, :(using TestPicker.Test))
-    test_content = prepend_ex(test_content, :(using TestPicker: TestPicker))
+    test_content = prepend_ex(ex, :(const __pkg_path__ = $(pkg.path))) # Put the pkg path at the top level of the generated module
+    test_content = prepend_ex(test_content, :(using TestPicker.TestItemRunner: TestItemRunner, @testsnippet, @testmodule)) # @testsnippet and @testmodule will just return nothing and are needed to avoid errors in tests if these are present in files
+    test_content = prepend_ex(test_content, :(using TestPicker.Test))
+    test_content = prepend_ex(test_content, :(using TestPicker: TestPicker, @testitem))
 
     module_expr = Expr(:module, true, mod, test_content)
 
