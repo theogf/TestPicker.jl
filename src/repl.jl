@@ -130,8 +130,7 @@ function test_mode_do_cmd(repl::AbstractREPL, input::String)
     if test_type == TestFileQuery
         fzf_testfile(first(inputs))
     elseif test_type == TestsetQuery
-        interfaces = [StdTestset()]
-        fzf_testblock(interfaces, inputs...)
+        fzf_testblock(INTERFACES, inputs...)
     elseif test_type == LatestEval
         pkg = current_pkg()
         clean_results_file(pkg)
