@@ -15,7 +15,7 @@ using TestEnv
 using TestEnv: TestEnvError, get_test_dir, isinstalled!
 
 export clear_testenv_cache
-export TestBlockInterface
+export TestBlockInterface, add_interface!
 
 struct TestInfo
     filename::String
@@ -33,9 +33,15 @@ const LATEST_EVAL = Ref{Union{Nothing,Vector{EvalTest}}}(nothing)
 include("common.jl")
 include("eval.jl")
 include("testfile.jl")
+include("testblockinterface.jl")
 include("testblock.jl")
 include("repl.jl")
 include("results_viewer.jl")
+
+const INTERFACES = TestBlockInterface[StdTestset()]
+
+"Add a new interface, to the list of test block interfaces run by `TestPicker`, duplicates are automatically removed."
+add_interface!(interface::TestBlockInterface) = unique!(push!(INTERFACES, interface))
 
 function __init__()
     # Add the REPL mode to the current active REPL.
