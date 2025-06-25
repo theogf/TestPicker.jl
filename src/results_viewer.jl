@@ -137,7 +137,7 @@ function preview_content(test::Test.Fail)
 end
 
 function context(t::TestInfo)
-    return t.filename * (isempty(t.testset) ? "" : " - $(t.testset)")
+    return t.filename * (isempty(t.label) ? "" : " - $(t.label)")
 end
 
 "Obtain the source from the LineNumberNode."

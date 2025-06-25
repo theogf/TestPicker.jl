@@ -19,7 +19,7 @@ end
 
 "Evaluate `ex` scoped in a `Module`, while activating the test environment of `pkg`."
 function eval_in_module((; ex, info)::EvalTest, pkg::PackageSpec)
-    (; filename, testset, line) = info
+    (; filename, label, line) = info
     mod = gensym(pkg.name)
     revise_ex = quote
         import TestPicker: Revise
@@ -74,8 +74,8 @@ function eval_in_module((; ex, info)::EvalTest, pkg::PackageSpec)
     root = get_test_dir_from_pkg(pkg)
     # We fetch `dir` such that relative include paths still work as expected.
     dir = dirname(joinpath(root, filename))
-    if !isempty(testset)
-        @info "Executing testset $(testset) from $(filename):$(line)"
+    if !isempty(label)
+        @info "Executing testblock $(label) from $(filename):$(line)"
     else
         @info "Executing test file $(filename)"
     end

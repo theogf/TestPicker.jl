@@ -18,7 +18,7 @@ export clear_testenv_cache
 
 struct TestInfo
     filename::String
-    testset::String
+    label::String
     line::Int
 end
 "Struct containing a ran object, either a testset or a file."
