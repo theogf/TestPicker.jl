@@ -9,7 +9,7 @@ Fetch all potential test block that can be fetched from the testset parsing.
 Other nodes than `@testset` can be added (coma separated) via `ENV["TESTPICKER_NODES"]`.
 """
 function testnode_symbols()
-    nodes = [Symbol("@testset")]
+    nodes = [Symbol("@testset"), Symbol("@testitem")]
     if haskey(ENV, "TESTPICKER_NODES")
         str = ENV["TESTPICKER_NODES"]
         names = strip.(split(str, ','))

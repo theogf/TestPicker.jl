@@ -13,6 +13,7 @@ using Revise: Revise
 using Test
 using TestEnv
 using TestEnv: TestEnvError, get_test_dir, isinstalled!
+import TestItemRunner
 
 export clear_testenv_cache
 
