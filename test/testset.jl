@@ -27,7 +27,7 @@ end
     """
 
     s3 = """
-    @testitem "aaaa" begin
+    @foo "aaaa" begin
     end
     """
 
@@ -38,14 +38,14 @@ end
     root = parseall(SyntaxNode, s3)
     node = only(JuliaSyntax.children(root))
     @test !is_testnode(node)
-    @test withenv("TESTPICKER_NODES" => "@testitem") do
+    @test withenv("TESTPICKER_NODES" => "@foo") do
         is_testnode(node)
     end
     @test_logs (:warn,) withenv("TESTPICKER_NODES" => "foobar") do
         is_testnode(node)
     end
     @test withenv("TESTPICKER_NODES" => "@foo,@bar") do
-        testnode_symbols() == [Symbol("@testset"), Symbol("@foo"), Symbol("@bar")]
+        testnode_symbols() == [Symbol("@testset"), Symbol("@testitem"), Symbol("@foo"), Symbol("@bar")]
     end
 end
 @testset "Matching files" begin
