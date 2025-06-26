@@ -169,7 +169,7 @@ function testblock_list(
                 TestPicker.save_test_results(e, $(test_info), $(pkg))
             end
         end
-        preamble_statements = prepend_interface_preamble(interface, Expr.(preamble))
+        preamble_statements = prepend_preamble_statements(interface, Expr.(preamble))
         ex = Expr(:block, preamble_statements..., tried_testset)
         EvalTest(ex, test_info)
     end
