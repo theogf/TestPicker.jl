@@ -6,8 +6,11 @@ end
 @safetestset "testfile" begin
     include("testfile.jl")
 end
-@safetestset "testset" begin
-    include("testset.jl")
+@safetestset "testblockinterface" begin
+    include("testblockinterface.jl")
+end
+@safetestset "testblock" begin
+    include("testblock.jl")
 end
 @safetestset "repl" begin
     include("repl.jl")

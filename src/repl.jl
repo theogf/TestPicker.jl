@@ -5,7 +5,32 @@ test_mode_prompt() = "test> "
 "Trigger key to get into test mode."
 const TESTMODE_TRIGGER = '!'
 
-# Initialize the pager mode in the `repl`.
+"""
+    init_test_repl_mode(repl::AbstractREPL) -> Nothing
+
+Initialize and add test mode to the REPL interface.
+
+Sets up a custom REPL mode for TestPicker that can be accessed by typing '!' at the
+beginning of a line. The test mode provides specialized commands for running and
+inspecting tests interactively.
+
+# Arguments
+- `repl::AbstractREPL`: The REPL instance to modify
+
+# Side Effects
+- Adds a new test mode to the REPL interface
+- Modifies the main mode's keymap to include the trigger
+- Sets up mode switching behavior and key bindings
+
+# Notes
+The test mode supports:
+- Standard REPL features (history, search, etc.)
+- Custom test commands and query parsing
+- Seamless switching between main and test modes
+
+# See also
+[`create_repl_test_mode`](@ref)
+"""
 function init_test_repl_mode(repl::AbstractREPL)
     # Get the main REPL mode (julia prompt).
     main_mode = repl.interface.modes[1]
@@ -38,7 +63,32 @@ function init_test_repl_mode(repl::AbstractREPL)
     return nothing
 end
 
-"Create an additional repl mode for testing to the given `repl`."
+"""
+    create_repl_test_mode(repl::AbstractREPL, main::LineEdit.Prompt) -> LineEdit.Prompt
+
+Create a new REPL mode specifically for test operations.
+
+Constructs a custom REPL prompt mode that handles test-specific commands and provides
+an isolated interface for TestPicker operations. The mode includes proper history
+support, key bindings, and command processing.
+
+# Arguments
+- `repl::AbstractREPL`: The REPL instance to create the mode for
+- `main::LineEdit.Prompt`: The main REPL mode to inherit settings from
+
+# Returns
+- `LineEdit.Prompt`: The configured test mode prompt ready for use
+
+# Features
+- Custom prompt with magenta coloring (if supported)
+- Sticky mode behavior for continued test operations
+- Integrated history and search functionality
+- Error handling for test execution failures
+- Automatic return to main mode when appropriate
+
+# See also
+[`init_test_repl_mode`](@ref), [`test_mode_do_cmd`](@ref)
+"""
 function create_repl_test_mode(repl::AbstractREPL, main::LineEdit.Prompt)
     test_mode = LineEdit.Prompt(
         test_mode_prompt;
@@ -94,9 +144,55 @@ function create_repl_test_mode(repl::AbstractREPL, main::LineEdit.Prompt)
     return test_mode
 end
 
+"""
+    QueryType
+
+Enumeration of different types of test queries supported by the test REPL mode.
+
+# Values
+- `TestFileQuery`: Query for running tests from specific files
+- `TestsetQuery`: Query for running specific test sets (format: "file:testset")
+- `LatestEval`: Re-run the most recently evaluated tests (triggered by "-")
+- `InspectResults`: View test results visualization (triggered by "?")
+- `UnmatchedQuery`: Query that couldn't be parsed or is invalid
+"""
 @enum QueryType TestFileQuery TestsetQuery LatestEval InspectResults UnmatchedQuery
 
-"Identify the type of query based on the input."
+"""
+    identify_query(input::AbstractString) -> (QueryType, Tuple)
+
+Parse user input in test mode and identify the type of operation requested.
+
+Analyzes the input string to determine what kind of test operation the user wants
+to perform and extracts the relevant parameters for that operation.
+
+# Arguments
+- `input::AbstractString`: The raw input from the test mode REPL
+
+# Returns
+- `Tuple{QueryType, Tuple}`: The query type and associated parameters
+
+# Query Formats
+- `"-"`: Re-run latest evaluation (returns `LatestEval` with stored tests)
+- `"?"`: Inspect test results (returns `InspectResults` with empty tuple)  
+- `"file:testset"`: Run specific test set (returns `TestsetQuery` with file and testset)
+- `"filename"`: Run tests from file (returns `TestFileQuery` with filename and empty testset)
+
+# Examples
+```julia
+identify_query("test_math.jl")           # (TestFileQuery, ("test_math.jl", ""))
+identify_query("test_math.jl:addition")  # (TestsetQuery, ("test_math.jl", "addition"))
+identify_query("-")                      # (LatestEval, <previous_tests>)
+identify_query("?")                      # (InspectResults, ())
+```
+
+# Error Handling
+- Returns `UnmatchedQuery` for inputs that cannot be parsed
+- Handles case where no previous evaluation exists for "-" command
+
+# See also
+[`QueryType`](@ref), [`test_mode_do_cmd`](@ref)
+"""
 function identify_query(input::AbstractString)
     if strip(input) == "-"
         if isnothing(LATEST_EVAL[])
@@ -117,7 +213,47 @@ function identify_query(input::AbstractString)
     end
 end
 
-# Execute the actions when a command has been received in the REPL mode `test`
+"""
+    test_mode_do_cmd(repl::AbstractREPL, input::String) -> Nothing
+
+Execute test commands received in the test REPL mode.
+
+Processes user input from the test mode, identifies the requested operation,
+and dispatches to the appropriate test execution or inspection function.
+
+# Arguments
+- `repl::AbstractREPL`: The REPL instance for result visualization
+- `input::String`: The command string entered by the user
+
+# Commands Supported
+- File queries: Run tests from matching files using fuzzy search
+- Testset queries: Run specific test sets using file:testset syntax
+- Latest evaluation: Re-run previously executed tests with "-"
+- Result inspection: View test results with "?"
+
+# Side Effects
+- May execute test code and modify package environments
+- Updates the latest evaluation cache
+- Can display test results in the REPL
+- Outputs informational messages and errors
+
+# Error Handling
+- Catches and reports `TestSetException` errors from test execution
+- Provides warning for non-interactive usage
+- Handles unrecognized query formats
+
+# Examples
+```julia
+# In test mode:
+# "math"              # Run tests from files matching "math"
+# "test_calc.jl:add"  # Run "add" testset from test_calc.jl
+# "-"                 # Re-run last tests
+# "?"                 # View test results
+```
+
+# See also
+[`identify_query`](@ref), [`fzf_testfile`](@ref), [`fzf_testblock`](@ref), [`visualize_test_results`](@ref)
+"""
 function test_mode_do_cmd(repl::AbstractREPL, input::String)
     if !isinteractive() && get(ENV, "PRINT_REPL_WARNING", true)
         @warn "The test mode is intended for interaction use only, and cannot not be used from scripts."
@@ -130,7 +266,7 @@ function test_mode_do_cmd(repl::AbstractREPL, input::String)
     if test_type == TestFileQuery
         fzf_testfile(first(inputs))
     elseif test_type == TestsetQuery
-        fzf_testset(inputs...)
+        fzf_testblock(INTERFACES, inputs...)
     elseif test_type == LatestEval
         pkg = current_pkg()
         clean_results_file(pkg)

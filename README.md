@@ -89,19 +89,10 @@ Similarly to the multiple files, you can select multiple testsets to be run and 
 
 ### Running other test blocks than `@testset`
 
-You have the option to add any macro that follows the `@testset` syntax (e.g. `@testitem` from [`TestItems.jl`](https://github.com/julia-vscode/TestItems.jl)) by adding them to your environment as
+You have the option to add any macro that follows the `@testset` syntax (e.g. `@testitem` from [`TestItems.jl`](https://github.com/julia-vscode/TestItems.jl)) by adding your own test interface.
+All you need is to implement your own interface under `TestBlockInterface` (see docstring) where you will need a predicate for the test blocks you are interested in and a label for the blocks.
 
-```julia
-ENV["TESTPICKER_NODES"] = "@testitem"
-```
-
-You can add mutltiple options, coma-separated.
-
-```julia
-ENV["TESTPICKER_NODES"] = "@testitem, @mycustomtestset"
-```
-
-Note that the environment must be set **before** calling `using TestPicker` is used.
+Once you have your interface created you can make `TestPicker` use it with `add_interface!(my_interface)`.
 
 ### Repeating latest test
 
