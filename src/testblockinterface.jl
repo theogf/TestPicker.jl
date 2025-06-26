@@ -274,8 +274,8 @@ function istestblock(::StdTestset, node::SyntaxNode)
     length(nodes) > 1 || return false
     kind(first(nodes)) == K"MacroName" || return false
     sourcetext(first(nodes)) == "testset" || return false
-    # The sceond node needs to be descriptive `String`.
-    return kind(nodes[2]) == K"String"
+    # The second node needs to be descriptive `String`.
+    return kind(nodes[2]) == K"string"
 end
 
 function blocklabel(::StdTestset, node::SyntaxNode)
