@@ -268,12 +268,18 @@ end
 struct StdTestset <: TestBlockInterface end
 
 function istestblock(::StdTestset, node::SyntaxNode)
+    kind(node) == K"macrocall" || return false
     nodes = JuliaSyntax.children(node)
-    return !isnothing(nodes) && !isempty(nodes) && Expr(first(nodes)) == Symbol("@testset")
+    isnothing(nodes) && return false
+    length(nodes) > 1 || return false
+    kind(first(nodes)) == K"MacroName" || return false
+    sourcetext(first(nodes)) == "testset" || return false
+    # The sceond node needs to be descriptive `String`.
+    return kind(nodes[2]) == K"String"
 end
 
 function blocklabel(::StdTestset, node::SyntaxNode)
-    return JuliaSyntax.sourcetext(JuliaSyntax.children(node)[2])
+    return sourcetext(JuliaSyntax.children(node)[2])
 end
 
 function preamble(::StdTestset)
