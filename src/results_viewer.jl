@@ -217,10 +217,10 @@ information, and context.
 
 # File Format
 Each test result is stored as a line with components separated by [`separator()`](@ref):
-1. Test description (from [`list_view`](@ref))
-2. Cleaned source location (from [`clean_source`](@ref))
-3. Detailed error content (from [`preview_content`](@ref))
-4. Test context (from [`context`](@ref))
+1. Test description (from `list_view`)
+2. Cleaned source location (from `clean_source`)
+3. Detailed error content (from `preview_content`)
+4. Test context (from `context`)
 
 # Side Effects
 - Creates results file if it doesn't exist
@@ -230,9 +230,6 @@ Each test result is stored as a line with components separated by [`separator()`
 # Notes
 Results are formatted specifically for consumption by [`visualize_test_results`](@ref)
 and the fzf-based results viewer interface.
-
-# See also
-[`clean_results_file`](@ref), [`visualize_test_results`](@ref), [`separator`](@ref)
 """
 function save_test_results(
     testset::Test.TestSetException, testinfo::TestInfo, pkg::PackageSpec

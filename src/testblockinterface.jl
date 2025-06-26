@@ -14,12 +14,12 @@ struct MyTestBlock <: TestBlockInterface end
 ```
 
 ## Required Methods
-- [`istestblock(::MyTestBlock, node::SyntaxNode)::Bool`](@ref): Determines whether a given `SyntaxNode` represents a test block
-- [`blocklabel(::MyTestBlock, node::SyntaxNode)::String`](@ref): Produces a (preferably) unique label for filtering and display
+- [`istestblock(::MyTestBlock, node::SyntaxNode)::Bool`](@ref istestblock): Determines whether a given `SyntaxNode` represents a test block
+- [`blocklabel(::MyTestBlock, node::SyntaxNode)::String`](@ref blocklabel): Produces a (preferably) unique label for filtering and display
 
 ## Optional Methods  
-- [`preamble(::MyTestBlock)::Union{Nothing, Expr}`](@ref): Returns additional preamble that the test block might require (default: `nothing`)
-- [`expr_transform(::MyTestBlock, ex::Expr)::Expr`](@ref): Transforms the test block expression before evaluation (default: identity)
+- [`preamble(::MyTestBlock)::Union{Nothing, Expr}`](@ref preamble): Returns additional preamble that the test block might require (default: `nothing`)
+- [`expr_transform(::MyTestBlock, ex::Expr)::Expr`](@ref expr_transform): Transforms the test block expression before evaluation (default: identity)
 
 # Examples
 ```julia
