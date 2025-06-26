@@ -209,9 +209,9 @@ The default implementation returns the expression unchanged (identity transforma
 function expr_transform(::TimedTestInterface, ex::Expr)
     return quote
         start_time = time()
-        result = $ex
+        result = \$ex
         elapsed = time() - start_time
-        println("Test completed in $(elapsed)s")
+        println("Test completed in \$(elapsed)s")
         result
     end
 end
@@ -220,9 +220,9 @@ end
 function expr_transform(::SafeTestInterface, ex::Expr)
     return quote
         try
-            $ex
+            \$ex
         catch e
-            @warn "Test failed with error: $e"
+            @warn "Test failed with error: \$e"
             rethrow()
         end
     end
