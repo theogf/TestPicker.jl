@@ -3,6 +3,7 @@ module TestPicker
 using bat_jll: get_bat_path
 using fzf_jll: fzf
 using JuliaSyntax
+using JuliaSyntax: @K_str, sourcetext
 using InteractiveUtils: editor
 using Pkg
 using Pkg: PackageSpec
