@@ -37,52 +37,32 @@ struct SyntaxBlock
 end
 
 """
-    TestBlockInfo
-
-Metadata container for a test block, including its location and identification information.
-
-Stores essential information about a test block's location within a file and provides
-a label for identification and display purposes.
-"""
-struct TestBlockInfo
-    label::String
-    file_name::String
-    line_start::Int
-    line_end::Int
-end
-
-label(info::TestBlockInfo) = info.label
-file_name(info::TestBlockInfo) = info.file_name
-
-function TestBlockInfo(block::SyntaxBlock, file::AbstractString)
-    (; testblock, interface) = block
-    label = blocklabel(interface, testblock)
-    line_start, _ = JuliaSyntax.source_location(testblock.source, testblock.position)
-    block_length = countlines(IOBuffer(JuliaSyntax.sourcetext(testblock)))
-    line_end = line_start + block_length - 1
-    return TestBlockInfo(label, file, line_start, line_end)
-end
-
-"""
     get_testblocks(interfaces::Vector{<:TestBlockInterface}, file::AbstractString) -> Vector{SyntaxBlock}
 
 Parse a Julia file and extract all test blocks with their associated preamble statements.
 
-For each test block found (including nested ones), collects all preceding preamble
+For each test block found (including nested ones), collects all preceding preamble 
 statements that should be executed before the test block. Uses the provided interfaces
 to determine what constitutes a test block.
+
+# Arguments
+- `interfaces::Vector{<:TestBlockInterface}`: Collection of test block interfaces to use for parsing
+- `file::AbstractString`: Path to the Julia file to parse
+
+# Returns
+- `Vector{SyntaxBlock}`: Collection of parsed test blocks with their preambles
 """
 function get_testblocks(interfaces::Vector{<:TestBlockInterface}, file::AbstractString)
     root = parseall(SyntaxNode, read(file, String); filename=file)
     return mapreduce(vcat, interfaces) do interface
-        syntax_blocks = Vector{SyntaxBlock}()
-        get_testblocks!(interface, syntax_blocks, root)
-        syntax_blocks
+        testblocks = Vector{SyntaxBlock}()
+        get_testblocks!(interface, testblocks, root)
+        testblocks
     end
 end
 function get_testblocks!(
     interface::TestBlockInterface,
-    syntax_blocks::Vector{SyntaxBlock},
+    testblocks::Vector{SyntaxBlock},
     node::SyntaxNode,
     preamble::Vector{SyntaxNode}=SyntaxNode[],
 )
@@ -90,10 +70,10 @@ function get_testblocks!(
     isnothing(nodes) && return nothing
     for node in nodes
         if istestblock(interface, node)
-            push!(syntax_blocks, SyntaxBlock(copy(preamble), node, interface))
-            get_testblocks!(interface, syntax_blocks, node, copy(preamble))
+            push!(testblocks, SyntaxBlock(copy(preamble), node, interface))
+            get_testblocks!(interface, testblocks, node, copy(preamble))
         else
-            get_testblocks!(interface, syntax_blocks, node, copy(preamble))
+            get_testblocks!(interface, testblocks, node, copy(preamble))
             if ispreamble(node)
                 push!(preamble, node)
             end
@@ -102,20 +82,33 @@ function get_testblocks!(
 end
 
 """
-    get_matching_files(file_query::AbstractString, testfiles::AbstractVector{<:AbstractString}) -> Vector{String}
+    get_matching_files(file_query::AbstractString, test_files::AbstractVector{<:AbstractString}) -> Vector{String}
 
 Filter test files using fzf's non-interactive filtering based on the given query.
 
 Uses `fzf --filter` to perform fuzzy matching on the provided list of test files,
 returning only those that match the query pattern.
+
+# Arguments
+- `file_query::AbstractString`: Fuzzy search pattern to match against file names
+- `test_files::AbstractVector{<:AbstractString}`: List of test file paths to filter
+
+# Returns
+- `Vector{String}`: List of file paths that match the query
+
+# Examples
+```julia
+files = ["test/test_math.jl", "test/test_string.jl", "test/integration.jl"]
+get_matching_files("math", files)  # Returns ["test/test_math.jl"]
+```
 """
 function get_matching_files(
-    file_query::AbstractString, testfiles::AbstractVector{<:AbstractString}
+    file_query::AbstractString, test_files::AbstractVector{<:AbstractString}
 )
     return readlines(
         pipeline(
             Cmd(`$(fzf()) --filter $(file_query)`; ignorestatus=true);
-            stdin=IOBuffer(join(testfiles, '\n')),
+            stdin=IOBuffer(join(test_files, '\n')),
         ),
     )
 end
@@ -223,7 +216,9 @@ function testblock_list(
         (; label, file_name, line_start) = blockinfo
         test_info = TestInfo(file_name, label, line_start)
         (; preamble, testblock, interface) = syntax_block
-        block_expr = expr_transform(interface, Expr(testblock))
+        block_expr = expr_transform(
+            interface, Expr(testblock), blockinfo, get_test_dir_from_pkg(pkg)
+        )
         tried_testset = quote
             try
                 $(block_expr)
