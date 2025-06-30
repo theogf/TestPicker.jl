@@ -135,30 +135,6 @@ function get_matching_files(
 end
 
 """
-    TestBlockInfo
-
-Metadata container for a test block, including its location and identification information.
-
-Stores essential information about a test block's location within a file and provides
-a label for identification and display purposes.
-
-# Fields
-- `label::String`: Human-readable label for the test block (e.g., test set name)
-- `file_name::String`: Name of the file containing the test block
-- `line_start::Int`: Starting line number of the test block (1-indexed)
-- `line_end::Int`: Ending line number of the test block (1-indexed)
-"""
-struct TestBlockInfo
-    label::String
-    file_name::String
-    line_start::Int
-    line_end::Int
-end
-
-label(info::TestBlockInfo) = info.label
-file_name(info::TestBlockInfo) = info.file_name
-
-"""
     build_info_to_syntax(interfaces, root, matched_files) -> (Dict{TestBlockInfo,SyntaxBlock}, Dict{String,TestBlockInfo})
 
 Parse matched files and build mapping structures for test block selection and display.
@@ -294,7 +270,9 @@ function testblock_list(
         (; label, file_name, line_start) = blockinfo
         test_info = TestInfo(file_name, label, line_start)
         (; preamble, testblock, interface) = syntax_block
-        block_expr = expr_transform(interface, Expr(testblock))
+        block_expr = expr_transform(
+            interface, Expr(testblock), blockinfo, get_test_dir_from_pkg(pkg)
+        )
         tried_testset = quote
             try
                 $(block_expr)
