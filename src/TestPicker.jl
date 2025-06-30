@@ -16,7 +16,7 @@ using TestEnv
 using TestEnv: TestEnvError, get_test_dir, isinstalled!
 
 export clear_testenv_cache
-export TestBlockInterface, add_interface!
+export TestBlockInterface, add_interface!, replace_interface!
 
 """
     TestInfo
@@ -143,15 +143,15 @@ add_interface!(MyTestInterface())
 
 # Now TestPicker will recognize your test blocks
 ```
-
-# Side Effects
-Modifies the global [`INTERFACES`](@ref) collection, affecting all subsequent
-test parsing and execution operations.
-
-# See also
-[`INTERFACES`](@ref), [`TestBlockInterface`](@ref)
 """
 add_interface!(interface::TestBlockInterface) = unique!(push!(INTERFACES, interface))
+
+"""
+    replace_interface!(interface::TestBlockInterface) -> Vector{TestBlockInterface}
+
+Similar to `add_interface!` but empty the interface first before adding the new one so that it becomes the unique interface.
+"""
+replace_interface!(interface::TestBlockInterface) = push!(empty!(INTERFACES), interface)
 
 function __init__()
     # Add the REPL mode to the current active REPL.
