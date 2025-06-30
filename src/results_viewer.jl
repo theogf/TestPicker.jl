@@ -58,9 +58,6 @@ visualize_test_results()
 pkg = PackageSpec(name="MyPackage")
 visualize_test_results(Base.active_repl, pkg)
 ```
-
-# See also
-[`save_test_results`](@ref), [`get_preview_dimension`](@ref), [`separator`](@ref)
 """
 function visualize_test_results(
     repl::AbstractREPL=Base.active_repl, pkg::PackageSpec=current_pkg()

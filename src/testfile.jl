@@ -28,9 +28,6 @@ files = select_test_files("math")
 pkg = PackageSpec(name="MyPackage")
 files = select_test_files("integration", pkg)
 ```
-
-# See also
-[`get_test_files`](@ref), [`fzf_testfile`](@ref)
 """
 function select_test_files(query::AbstractString, pkg::PackageSpec=current_pkg())
     root, files = get_test_files(pkg)
@@ -132,9 +129,6 @@ fzf_testfile("integration")
 # Run all test files (empty query shows all)
 fzf_testfile("")
 ```
-
-# See also
-[`select_test_files`](@ref), [`run_test_files`](@ref)
 """
 function fzf_testfile(query::AbstractString)
     pkg = current_pkg()
@@ -170,9 +164,6 @@ the test evaluation state. Each file is wrapped in a testset and executed in iso
 - Validates file paths before execution
 - Reports missing files as errors with bug report guidance
 - Individual file failures don't stop batch execution
-
-# See also
-[`run_test_file`](@ref), [`select_test_files`](@ref), [`clean_results_file`](@ref)
 """
 function run_test_files(files::AbstractVector{<:AbstractString}, pkg::PackageSpec)
     # We return early to not empty the LATEST_EVAL
@@ -226,9 +217,6 @@ end
 - Test failures are caught and saved rather than propagated
 - Non-test errors are re-thrown
 - File-level errors are properly contextualized
-
-# See also
-[`eval_in_module`](@ref), [`save_test_results`](@ref), [`EvalTest`](@ref)
 """
 function run_test_file(file::AbstractString, pkg::PackageSpec)
     testset_name = "$(pkg.name) - $(file)"

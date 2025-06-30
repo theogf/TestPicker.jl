@@ -80,9 +80,6 @@ test = EvalTest(:(using Test; @test 1+1 == 2), TestInfo("test.jl", "arithmetic",
 pkg = PackageSpec(name="MyPackage", path="/path/to/package")
 eval_in_module(test, pkg)
 ```
-
-# See also
-[`EvalTest`](@ref), [`TESTENV_CACHE`](@ref), [`prepend_ex`](@ref), [`clear_testenv_cache`](@ref)
 """
 function eval_in_module((; ex, info)::EvalTest, pkg::PackageSpec)
     (; filename, label, line) = info
@@ -145,6 +142,7 @@ function eval_in_module((; ex, info)::EvalTest, pkg::PackageSpec)
     else
         @info "Executing test file $(filename)"
     end
+    @debug "Evaluating code block" top_ex
     try
         # cd acts such that also evaled expressions in `Main` are affected.
         cd(dir) do

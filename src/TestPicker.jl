@@ -30,9 +30,6 @@ used for tracking test execution and displaying results.
 - `filename::String`: Source file containing the test
 - `label::String`: Human-readable test identifier (e.g., testset name)
 - `line::Int`: Line number where the test begins
-
-# See also
-[`EvalTest`](@ref), [`save_test_results`](@ref)
 """
 struct TestInfo
     filename::String
@@ -55,9 +52,6 @@ and context. Used throughout TestPicker for tracking and executing tests.
 # Usage
 `EvalTest` objects are created during test parsing and stored in [`LATEST_EVAL`](@ref)
 for re-execution and result tracking.
-
-# See also
-[`TestInfo`](@ref), [`eval_in_module`](@ref), [`LATEST_EVAL`](@ref)
 """
 struct EvalTest
     ex::Expr
@@ -120,9 +114,6 @@ Use [`add_interface!`](@ref) to register additional test block interfaces:
 # Add support for custom test blocks
 add_interface!(MyCustomTestInterface())
 ```
-
-# See also
-[`TestBlockInterface`](@ref), [`StdTestset`](@ref), [`add_interface!`](@ref)
 """
 const INTERFACES = TestBlockInterface[StdTestset()]
 
