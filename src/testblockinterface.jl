@@ -36,9 +36,6 @@ function blocklabel(::NoWarnTestInterface, node::SyntaxNode)
     return "nowarn: " * JuliaSyntax.sourcetext(JuliaSyntax.children(node)[2])
 end
 ```
-
-# See also
-[`StdTestset`](@ref), [`istestblock`](@ref), [`blocklabel`](@ref)
 """
 abstract type TestBlockInterface end
 
@@ -99,9 +96,6 @@ function blocklabel(::StdTestset, node::SyntaxNode)
     return JuliaSyntax.sourcetext(JuliaSyntax.children(node)[2])
 end
 ```
-
-# See also  
-[`TestBlockInterface`](@ref), [`istestblock`](@ref)
 """
 function blocklabel(::T, node::SyntaxNode) where {T<:TestBlockInterface}
     return error("`blocklabel` must be implemented for type $(T).")
@@ -140,9 +134,6 @@ function preamble(::MyCustomInterface)
     end
 end
 ```
-
-# See also
-[`TestBlockInterface`](@ref), [`prepend_preamble_statements`](@ref)
 """
 function preamble(::TestBlockInterface)
     return nothing
@@ -171,9 +162,6 @@ existing = [:(x = 1), :(y = 2)]
 result = prepend_preamble_statements(interface, existing)
 # Returns: [:(using Test), :(x = 1), :(y = 2)]
 ```
-
-# See also
-[`preamble`](@ref), [`TestBlockInterface`](@ref)
 """
 function prepend_preamble_statements(interface::TestBlockInterface, preambles::Vector{Expr})
     interface_preamble = preamble(interface)
@@ -228,9 +216,6 @@ function expr_transform(::SafeTestInterface, ex::Expr)
     end
 end
 ```
-
-# See also
-[`TestBlockInterface`](@ref), [`preamble`](@ref)
 """
 function expr_transform(::TestBlockInterface, ex::Expr)
     return ex
@@ -261,9 +246,6 @@ end
 
 # The label would be: "Basic arithmetic tests"
 ```
-
-# See also
-[`TestBlockInterface`](@ref), [`istestblock`](@ref), [`blocklabel`](@ref), [`preamble`](@ref)
 """
 struct StdTestset <: TestBlockInterface end
 

@@ -27,9 +27,6 @@ The test mode supports:
 - Standard REPL features (history, search, etc.)
 - Custom test commands and query parsing
 - Seamless switching between main and test modes
-
-# See also
-[`create_repl_test_mode`](@ref)
 """
 function init_test_repl_mode(repl::AbstractREPL)
     # Get the main REPL mode (julia prompt).
@@ -85,9 +82,6 @@ support, key bindings, and command processing.
 - Integrated history and search functionality
 - Error handling for test execution failures
 - Automatic return to main mode when appropriate
-
-# See also
-[`init_test_repl_mode`](@ref), [`test_mode_do_cmd`](@ref)
 """
 function create_repl_test_mode(repl::AbstractREPL, main::LineEdit.Prompt)
     test_mode = LineEdit.Prompt(
@@ -189,9 +183,6 @@ identify_query("?")                      # (InspectResults, ())
 # Error Handling
 - Returns `UnmatchedQuery` for inputs that cannot be parsed
 - Handles case where no previous evaluation exists for "-" command
-
-# See also
-[`QueryType`](@ref), [`test_mode_do_cmd`](@ref)
 """
 function identify_query(input::AbstractString)
     if strip(input) == "-"
@@ -250,9 +241,6 @@ and dispatches to the appropriate test execution or inspection function.
 # "-"                 # Re-run last tests
 # "?"                 # View test results
 ```
-
-# See also
-[`identify_query`](@ref), [`fzf_testfile`](@ref), [`fzf_testblock`](@ref), [`visualize_test_results`](@ref)
 """
 function test_mode_do_cmd(repl::AbstractREPL, input::String)
     if !isinteractive() && get(ENV, "PRINT_REPL_WARNING", true)
