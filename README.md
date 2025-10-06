@@ -121,8 +121,8 @@ It is also possible to inspect the stacktrace as a list with a preview of the so
 
 ### Execution 
 
-- All selections will be run inside a module, in a similar fashion to [`SafeTestsets.jl`]().
-- Before running any selection, [`TestEnv.jl`]() `activate()` is us to mimick the `Pkg.test()` behaviour. The original environment is restored afterwards, regardless of the outcome.
+- All selections will be run inside a module, in a similar fashion to [`SafeTestsets.jl`](https://github.com/YingboMa/SafeTestsets.jl).
+- Before running any selection, [`TestEnv.jl`](https://github.com/JuliaTesting/TestEnv.jl) `activate()` is used to mimick the `Pkg.test()` behaviour. The original environment is restored afterwards, regardless of the outcome.
 - The evaluation will stop if an error happens **outside** of a testset.
 
 ## Known issues
