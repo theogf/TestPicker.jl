@@ -1,4 +1,28 @@
 """
+    TestBlockInfo
+
+Metadata container for a test block, including its location and identification information.
+
+Stores essential information about a test block's location within a file and provides
+a label for identification and display purposes.
+
+# Fields
+- `label::String`: Human-readable label for the test block (e.g., test set name)
+- `file_name::String`: Name of the file containing the test block
+- `line_start::Int`: Starting line number of the test block (1-indexed)
+- `line_end::Int`: Ending line number of the test block (1-indexed)
+"""
+struct TestBlockInfo
+    label::String
+    file_name::String
+    line_start::Int
+    line_end::Int
+end
+
+label(info::TestBlockInfo) = info.label
+file_name(info::TestBlockInfo) = info.file_name
+
+"""
     TestBlockInterface
 
 Abstract interface for defining and recognizing different types of test blocks in Julia code.
@@ -184,6 +208,8 @@ modifying test behavior, or adapting different test formats.
 # Arguments
 - `interface::TestBlockInterface`: The test block interface implementation
 - `ex::Expr`: The test block expression to transform
+- `info::TestBlockInfo` a bunch of metadata about the block that can be used to modify the expression
+- `root::AbstractString` the root directory of the test folder.
 
 # Returns
 - `Expr`: The transformed expression ready for evaluation
@@ -194,7 +220,7 @@ The default implementation returns the expression unchanged (identity transforma
 # Examples
 ```julia
 # Add timing information to test blocks:
-function expr_transform(::TimedTestInterface, ex::Expr)
+function expr_transform(::TimedTestInterface, ex::Expr, ::TestBlockInfo, ::AbstractString)
     return quote
         start_time = time()
         result = \$ex
@@ -205,7 +231,7 @@ function expr_transform(::TimedTestInterface, ex::Expr)
 end
 
 # Wrap tests in additional error handling:
-function expr_transform(::SafeTestInterface, ex::Expr)
+function expr_transform(::SafeTestInterface, ex::Expr, ::TestBlockInfo, ::AbstractString)
     return quote
         try
             \$ex
@@ -217,7 +243,7 @@ function expr_transform(::SafeTestInterface, ex::Expr)
 end
 ```
 """
-function expr_transform(::TestBlockInterface, ex::Expr)
+function expr_transform(::TestBlockInterface, ex::Expr, ::TestBlockInfo, ::AbstractString)
     return ex
 end
 
@@ -261,9 +287,42 @@ function istestblock(::StdTestset, node::SyntaxNode)
 end
 
 function blocklabel(::StdTestset, node::SyntaxNode)
-    return sourcetext(JuliaSyntax.children(node)[2])
+    return sourcetext(only(JuliaSyntax.children(JuliaSyntax.children(node)[2])))
 end
 
 function preamble(::StdTestset)
     return :(using Test)
+end
+
+struct TestItemInterface <: TestBlockInterface end
+
+function istestblock(::TestItemInterface, node::SyntaxNode)
+    kind(node) == K"macrocall" || return false
+    nodes = JuliaSyntax.children(node)
+    isnothing(nodes) && return false
+    length(nodes) > 1 || return false
+    kind(first(nodes)) == K"MacroName" || return false
+    sourcetext(first(nodes)) == "testitem" || return false
+    # The second node needs to be descriptive `String`.
+    return kind(nodes[2]) == K"string"
+end
+
+function blocklabel(::TestItemInterface, node::SyntaxNode)
+    return sourcetext(only(JuliaSyntax.children(JuliaSyntax.children(node)[2])))
+end
+
+function preamble(::TestItemInterface)
+    return :(using TestItemRunner)
+end
+
+function expr_transform(
+    ::TestItemInterface, ::Expr, (; label, file_name)::TestBlockInfo, root::AbstractString
+)
+    return :(esc(
+        TestItemRunner.run_tests(
+            $(dirname(root));
+            filter=ti ->
+                (ti.name == $(label) && ti.filename == $(joinpath(root, file_name))),
+        ),
+    ))
 end

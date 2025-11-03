@@ -16,7 +16,9 @@ using TestEnv
 using TestEnv: TestEnvError, get_test_dir, isinstalled!
 
 export clear_testenv_cache
+export TestBlockInfo
 export TestBlockInterface, add_interface!, replace_interface!
+export TestItemInterface, add_testitem_interface!
 
 """
     TestInfo
@@ -152,6 +154,8 @@ add_interface!(interface::TestBlockInterface) = unique!(push!(INTERFACES, interf
 Similar to `add_interface!` but empty the interface first before adding the new one so that it becomes the unique interface.
 """
 replace_interface!(interface::TestBlockInterface) = push!(empty!(INTERFACES), interface)
+
+add_testitem_interface!() = add_interface!(TestItemInterface())
 
 function __init__()
     # Add the REPL mode to the current active REPL.
