@@ -27,7 +27,7 @@ function select_test_files(query::AbstractString, pkg::PackageSpec=current_pkg()
         "--query", # Initial file query.
         query,
         "--bind",
-        "ctrl-b:execute-silent(echo __TESTBLOCK_MODE__ > $(tmpfile); echo {+} >> $(tmpfile))+abort",
+        "ctrl-b:execute-silent(printf '%s\\n' {+} > $(tmpfile))+accept",
     ]
     cmd = `$(fzf()) $(fzf_args)`
     output = readlines(
@@ -37,7 +37,7 @@ function select_test_files(query::AbstractString, pkg::PackageSpec=current_pkg()
     # Check if ctrl-b was pressed by checking the temp file
     if isfile(tmpfile)
         mode = :testblock
-        files = readlines(tmpfile)[2:end]  # Skip the marker line
+        files = readlines(tmpfile)
         rm(tmpfile)
     else
         mode = :file
