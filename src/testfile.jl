@@ -1,33 +1,54 @@
 """
-    select_test_files(query::AbstractString, pkg::PackageSpec=current_pkg()) -> Vector{String}
+    select_test_files(query::AbstractString, pkg::PackageSpec=current_pkg()) -> (Symbol, String, Vector{String})
 
 Interactively select test files using fzf based on a fuzzy search query.
 
 Presents an fzf interface showing all test files for the package, with syntax-highlighted
 preview using bat. Users can select multiple files and the query pre-filters the results.
+
+Returns a tuple of (mode, root, files) where:
+- mode is either :file or :testblock depending on whether the user pressed Enter or Ctrl+B
+- root is the test directory path
+- files are relative paths (not joined with root yet)
 """
 function select_test_files(query::AbstractString, pkg::PackageSpec=current_pkg())
     root, files = get_test_files(pkg)
+    # Create a temporary file for ctrl-b output
+    # We need to go through a file to avoid problematic ANSI codes produces by fzf when closing.
+    tmpfile = tempname()
     # Run fzf to get a relevant file.
     fzf_args = [
         "-m", # Allow multiple choices.
         "--preview", # Preview the given file with bat.
         "$(get_bat_path()) --color=always --style=numbers {-1}",
         "--header",
-        "Enter=run files | Ctrl+B=select test blocks | Tab=select multiple files",
+        "Enter=run files | Ctrl+B=switch to test blocks for selected file(s) | Tab=select multiple files",
         "--scheme=path",
         "--query", # Initial file query.
         query,
+        "--bind",
+        "ctrl-b:execute-silent(printf '%s\\n' {+} > $(tmpfile))+accept",
     ]
     cmd = `$(fzf()) $(fzf_args)`
-    files = readlines(
+    output = readlines(
         pipeline(Cmd(cmd; ignorestatus=true, dir=root); stdin=IOBuffer(join(files, '\n')))
     )
+
+    # Check if ctrl-b was pressed by checking the temp file
+    if isfile(tmpfile)
+        mode = :testblock
+        files = readlines(tmpfile)
+        rm(tmpfile)
+    else
+        mode = :file
+        files = output
+    end
+
     if isempty(files)
         @debug "Could not find any relevant files with query \"$query\"."
-        files
+        (mode, root, String[])
     else
-        joinpath.(Ref(root), files)
+        (mode, root, files)
     end
 end
 
@@ -64,11 +85,22 @@ Interactive test file selection and execution workflow.
 
 Combines file selection and execution in a single workflow: uses fzf to select
 test files based on the query, then runs all selected files in the test environment.
+If ctrl-b is pressed during file selection, switches to testblock selection mode instead.
 """
 function fzf_testfile(query::AbstractString)
     pkg = current_pkg()
-    files = select_test_files(query, pkg)
-    return run_test_files(files, pkg)
+    mode, root, files = select_test_files(query, pkg)
+
+    if mode == :testblock
+        # User pressed ctrl-b, switch to testblock mode
+        # Files are already relative paths, just pass them directly
+        return fzf_testblock_from_files(INTERFACES, files, "", pkg, root)
+    else
+        # Normal file execution mode
+        # Convert relative paths to absolute paths for file execution
+        absolute_files = joinpath.(Ref(root), files)
+        return run_test_files(absolute_files, pkg)
+    end
 end
 
 """
