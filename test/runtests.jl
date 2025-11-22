@@ -15,3 +15,6 @@ end
 @safetestset "repl" begin
     include("repl.jl")
 end
+@safetestset "fzf_interactive" begin
+    include("fzf_interactive.jl")
+end
