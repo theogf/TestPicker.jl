@@ -5,29 +5,6 @@ Interactively select test files using fzf based on a fuzzy search query.
 
 Presents an fzf interface showing all test files for the package, with syntax-highlighted
 preview using bat. Users can select multiple files and the query pre-filters the results.
-
-# Arguments
-- `query::AbstractString`: Initial fuzzy search pattern for filtering test files
-- `pkg::PackageSpec`: Package specification (defaults to current package)
-
-# Returns
-- `Vector{String}`: Full paths to selected test files, empty if no selection made
-
-# Features
-- Multi-selection enabled (can choose multiple test files)
-- Syntax-highlighted preview of file contents
-- Pre-filtered results based on initial query
-- Returns full absolute paths ready for execution
-
-# Examples
-```julia
-# Select test files matching "math"
-files = select_test_files("math")
-
-# Select from specific package
-pkg = PackageSpec(name="MyPackage")
-files = select_test_files("integration", pkg)
-```
 """
 function select_test_files(query::AbstractString, pkg::PackageSpec=current_pkg())
     root, files = get_test_files(pkg)
@@ -37,14 +14,20 @@ function select_test_files(query::AbstractString, pkg::PackageSpec=current_pkg()
         "--preview", # Preview the given file with bat.
         "$(get_bat_path()) --color=always --style=numbers {-1}",
         "--header",
-        "Selecting test file(s)",
+        "Enter=run files | Ctrl+B=select test blocks | Tab=select multiple files",
+        "--scheme=path",
         "--query", # Initial file query.
         query,
+        "--bind",
+        "ctrl-b:become:echo {+} | sed 's/^/@testblock /'",
     ]
     cmd = `$(fzf()) $(fzf_args)`
-    files = readlines(
-        pipeline(Cmd(cmd; ignorestatus=true, dir=root); stdin=IOBuffer(join(files, '\n')))
-    )
+    io = IOBuffer()
+    # files = readlines(
+    pipeline(Cmd(cmd; ignorestatus=true, dir=root); stdin=IOBuffer(join(files, '\n')))
+    # )
+    @show String(take!(io))
+    @show files
     if isempty(files)
         @debug "Could not find any relevant files with query \"$query\"."
         files
@@ -60,26 +43,6 @@ Discover and return all Julia test files for a package.
 
 Recursively searches the package's test directory to find all `.jl` files,
 returning both the test directory path and the collection of relative file paths.
-
-# Arguments
-- `pkg::PackageSpec`: Package specification (defaults to current package)
-
-# Returns
-- `Tuple{String, Vector{String}}`: 
-  - First element: Absolute path to the test directory
-  - Second element: Vector of test file paths relative to test directory
-
-# Notes
-- Only includes files with `.jl` extension
-- Searches recursively through subdirectories
-- File paths are normalized and relative to test directory root
-
-# Examples
-```julia
-test_dir, files = get_test_files()
-# test_dir: "/path/to/MyPackage/test"
-# files: ["runtests.jl", "subdir/test_math.jl", "test_utils.jl"]
-```
 """
 function get_test_files(pkg::PackageSpec=current_pkg())
     test_dir = get_test_dir_from_pkg(pkg)
@@ -106,29 +69,6 @@ Interactive test file selection and execution workflow.
 
 Combines file selection and execution in a single workflow: uses fzf to select
 test files based on the query, then runs all selected files in the test environment.
-
-# Arguments
-- `query::AbstractString`: Initial search pattern for filtering test files
-
-# Process
-1. Get current package context
-2. Present fzf interface for file selection
-3. Execute all selected test files
-4. Handle results and error reporting
-
-# Side Effects
-- Updates `LATEST_EVAL[]` with executed tests
-- Clears and populates results file with any failures/errors
-- May modify test environment state
-
-# Examples
-```julia
-# Run tests matching "integration"
-fzf_testfile("integration")
-
-# Run all test files (empty query shows all)
-fzf_testfile("")
-```
 """
 function fzf_testfile(query::AbstractString)
     pkg = current_pkg()
@@ -143,27 +83,6 @@ Execute a collection of test files in the package test environment.
 
 Runs each provided test file in sequence, handling errors gracefully and updating
 the test evaluation state. Each file is wrapped in a testset and executed in isolation.
-
-# Arguments
-- `files::AbstractVector{<:AbstractString}`: Full paths to test files to execute
-- `pkg::PackageSpec`: Package specification for test environment context
-
-# Behavior
-- Returns early if no files provided (preserves existing `LATEST_EVAL` state)
-- Resets `LATEST_EVAL[]` to empty array for new test run
-- Clears results file before execution
-- Validates file existence before attempting execution
-- Continues execution even if individual files fail
-
-# Side Effects
-- Modifies `LATEST_EVAL[]` global state
-- Clears and populates results file
-- May output error messages for missing files
-
-# Error Handling
-- Validates file paths before execution
-- Reports missing files as errors with bug report guidance
-- Individual file failures don't stop batch execution
 """
 function run_test_files(files::AbstractVector{<:AbstractString}, pkg::PackageSpec)
     # We return early to not empty the LATEST_EVAL
@@ -188,35 +107,6 @@ Execute a single test file in an isolated testset within the package test enviro
 
 Wraps the test file in a testset named after the package and file, handles test
 failures gracefully, and updates the global test state for later inspection.
-
-# Arguments
-- `file::AbstractString`: Path to the test file to execute
-- `pkg::PackageSpec`: Package specification for environment and naming
-
-# Process
-1. Creates a testset named "{package} - {file}"
-2. Includes the test file within the testset
-3. Catches and saves any test failures/errors
-4. Updates `LATEST_EVAL[]` with the test execution
-5. Evaluates in isolated module environment
-
-# Test Structure
-The file is executed within this structure:
-```julia
-@testset "PackageName - filepath" begin
-    include("filepath")
-end
-```
-
-# Side Effects
-- Updates or initializes `LATEST_EVAL[]` global state
-- May save test results to results file on failures
-- Executes file in test environment context
-
-# Error Handling
-- Test failures are caught and saved rather than propagated
-- Non-test errors are re-thrown
-- File-level errors are properly contextualized
 """
 function run_test_file(file::AbstractString, pkg::PackageSpec)
     testset_name = "$(pkg.name) - $(file)"
@@ -230,6 +120,7 @@ function run_test_file(file::AbstractString, pkg::PackageSpec)
         catch e
             !(e isa TestSetException) && rethrow()
             TestPicker.save_test_results(e, $(test_info), $(pkg))
+            e
         end
     end
     test = EvalTest(ex, test_info)

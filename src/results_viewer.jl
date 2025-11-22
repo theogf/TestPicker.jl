@@ -18,46 +18,6 @@ Interactive visualization of test failures and errors using fzf interface.
 Creates a loop-based interface for browsing test failures and errors from the most recent
 test execution. Provides syntax-highlighted previews of stack traces and allows editing
 of test files directly from the interface.
-
-# Arguments
-- `repl::AbstractREPL`: REPL instance for terminal operations (defaults to active REPL)
-- `pkg::PackageSpec`: Package specification for locating results (defaults to current package)
-
-# Features
-- **Two-level navigation**: 
-  1. Browse failed/errored tests with stack trace preview
-  2. Drill down into stack traces with source code preview
-- **Syntax highlighting**: Uses bat for colored display of Julia code
-- **Editor integration**: `Ctrl+e` opens files in configured editor
-- **Source location**: Shows relevant source code around error locations
-
-# Interface Controls
-- **Main view**:
-  - `Enter`: Drill down into stack trace for selected test
-  - `Ctrl+e`: Edit the test file
-  - `Esc`: Exit the viewer
-- **Stack trace view**:
-  - `Ctrl+e`: Edit source file at specific line
-  - `Esc`: Return to main test view
-
-# Prerequisites
-- Test results file must exist (created by running tests with failures/errors)
-- External dependencies: `fzf`, `bat`, configured editor
-
-# Error Handling
-- Warns if no results file exists
-- Gracefully handles missing stack traces for simple failures
-- Continues operation if source files cannot be located
-
-# Examples
-```julia
-# View results for current package
-visualize_test_results()
-
-# View results for specific package
-pkg = PackageSpec(name="MyPackage")
-visualize_test_results(Base.active_repl, pkg)
-```
 """
 function visualize_test_results(
     repl::AbstractREPL=Base.active_repl, pkg::PackageSpec=current_pkg()
@@ -206,27 +166,6 @@ Processes a test set exception containing failed and errored tests, formats them
 for display in the results viewer, and appends them to the package's results file.
 Each test result includes the test description, source location, detailed error
 information, and context.
-
-# Arguments
-- `testset::Test.TestSetException`: Exception containing failed/errored tests
-- `testinfo::TestInfo`: Information about the test block that was executed
-- `pkg::PackageSpec`: Package specification for file organization
-
-# File Format
-Each test result is stored as a line with components separated by [`separator()`](@ref):
-1. Test description (from `list_view`)
-2. Cleaned source location (from `clean_source`)
-3. Detailed error content (from `preview_content`)
-4. Test context (from `context`)
-
-# Side Effects
-- Creates results file if it doesn't exist
-- Appends new results to existing file content
-- Results are null-separated for fzf compatibility
-
-# Notes
-Results are formatted specifically for consumption by [`visualize_test_results`](@ref)
-and the fzf-based results viewer interface.
 """
 function save_test_results(
     testset::Test.TestSetException, testinfo::TestInfo, pkg::PackageSpec

@@ -6,26 +6,10 @@ Check if a statement qualifies as a preamble that should be executed before test
 
 A preamble statement is any statement that sets up the testing environment, such as:
 - Function calls (`:call`)
-- Import/using statements (`:using`, `:import`)  
+- Import/using statements (`:using`, `:import`)
 - Variable assignments (`:=`)
 - Macro calls (`:macrocall`)
 - Function definitions (`:function`)
-
-# Arguments
-- `node::SyntaxNode`: The syntax node to check
-
-# Returns
-- `Bool`: `true` if the node represents a preamble statement, `false` otherwise
-
-# Examples
-```julia
-# These would return true:
-using Test
-import MyModule
-x = 10
-@testset "setup" begin end
-function helper() end
-```
 """
 function ispreamble(node::SyntaxNode)
     ex = Expr(node)
@@ -43,13 +27,8 @@ end
 
 A container for a test block and its associated preamble statements.
 
-Contains all the necessary components to execute a test block, including any setup 
+Contains all the necessary components to execute a test block, including any setup
 code that needs to run beforehand. Can be easily converted into an evaluatable expression.
-
-# Fields
-- `preamble::Vector{SyntaxNode}`: Collection of preamble statements (imports, assignments, etc.)
-- `testblock::SyntaxNode`: The actual test block node (e.g., `@testset`)
-- `interface::TestBlockInterface`: The interface implementation used to parse this block
 """
 struct SyntaxBlock
     preamble::Vector{SyntaxNode}
@@ -62,16 +41,9 @@ end
 
 Parse a Julia file and extract all test blocks with their associated preamble statements.
 
-For each test block found (including nested ones), collects all preceding preamble 
+For each test block found (including nested ones), collects all preceding preamble
 statements that should be executed before the test block. Uses the provided interfaces
 to determine what constitutes a test block.
-
-# Arguments
-- `interfaces::Vector{<:TestBlockInterface}`: Collection of test block interfaces to use for parsing
-- `file::AbstractString`: Path to the Julia file to parse
-
-# Returns
-- `Vector{SyntaxBlock}`: Collection of parsed test blocks with their preambles
 """
 function get_testblocks(interfaces::Vector{<:TestBlockInterface}, file::AbstractString)
     root = parseall(SyntaxNode, read(file, String); filename=file)
@@ -109,19 +81,6 @@ Filter test files using fzf's non-interactive filtering based on the given query
 
 Uses `fzf --filter` to perform fuzzy matching on the provided list of test files,
 returning only those that match the query pattern.
-
-# Arguments
-- `file_query::AbstractString`: Fuzzy search pattern to match against file names
-- `test_files::AbstractVector{<:AbstractString}`: List of test file paths to filter
-
-# Returns
-- `Vector{String}`: List of file paths that match the query
-
-# Examples
-```julia
-files = ["test/test_math.jl", "test/test_string.jl", "test/integration.jl"]
-get_matching_files("math", files)  # Returns ["test/test_math.jl"]
-```
 """
 function get_matching_files(
     file_query::AbstractString, test_files::AbstractVector{<:AbstractString}
@@ -141,12 +100,6 @@ Metadata container for a test block, including its location and identification i
 
 Stores essential information about a test block's location within a file and provides
 a label for identification and display purposes.
-
-# Fields
-- `label::String`: Human-readable label for the test block (e.g., test set name)
-- `file_name::String`: Name of the file containing the test block
-- `line_start::Int`: Starting line number of the test block (1-indexed)
-- `line_end::Int`: Ending line number of the test block (1-indexed)
 """
 struct TestBlockInfo
     label::String
@@ -164,22 +117,8 @@ file_name(info::TestBlockInfo) = info.file_name
 Parse matched files and build mapping structures for test block selection and display.
 
 Extracts all test blocks from the provided files and creates two mappings:
-1. From test block metadata to syntax information 
+1. From test block metadata to syntax information
 2. From human-readable display strings (for fzf) to test block metadata
-
-# Arguments
-- `interfaces::Vector{<:TestBlockInterface}`: Test block interfaces for parsing
-- `root::AbstractString`: Root directory path for resolving relative file paths
-- `matched_files::AbstractVector{<:AbstractString}`: List of files to parse
-
-# Returns
-- `Tuple{Dict{TestBlockInfo,SyntaxBlock}, Dict{String,TestBlockInfo}}`: 
-  - First element: Maps test block info to syntax blocks
-  - Second element: Maps formatted display strings to test block info
-
-# Notes
-The display strings are formatted with padding for alignment in fzf, showing:
-`"<label> | <filename>:<line_start>-<line_end>"`
 """
 function build_info_to_syntax(
     interfaces::Vector{<:TestBlockInterface},
@@ -223,20 +162,6 @@ Present an interactive fzf interface for selecting test blocks to execute.
 Launches fzf with a preview window (using bat) that allows users to select one or more
 test blocks from the filtered list. The preview shows the actual test code with syntax
 highlighting.
-
-# Arguments
-- `tabled_keys::Dict{String,TestBlockInfo}`: Mapping from display strings to test block info
-- `testset_query::AbstractString`: Initial query to filter test block names
-- `root::AbstractString`: Root directory for file path resolution
-
-# Returns
-- `Vector{String}`: List of selected display strings corresponding to chosen test blocks
-
-# Features
-- Multi-selection enabled (`-m` flag)
-- Preview window shows test code with syntax highlighting
-- Initial query pre-filters results
-- Search limited to visible test labels (not file paths)
 """
 function pick_testblock(
     tabled_keys::Dict{String,TestBlockInfo},
@@ -272,15 +197,6 @@ Convert user-selected test block choices into executable test objects.
 Takes the selected display strings from fzf and converts them into `EvalTest` objects
 that can be evaluated. Each test is wrapped in a try-catch block to handle test failures
 gracefully and save results.
-
-# Arguments
-- `choices::Vector{<:AbstractString}`: Selected display strings from fzf
-- `info_to_syntax::Dict{TestBlockInfo,SyntaxBlock}`: Mapping from test info to syntax blocks
-- `display_to_info::Dict{String,TestBlockInfo}`: Mapping from display strings to test info
-- `pkg::PackageSpec`: Package specification for test context
-
-# Returns
-- `Vector{EvalTest}`: Collection of executable test objects ready for evaluation
 """
 function testblock_list(
     choices::Vector{<:AbstractString},
@@ -317,26 +233,6 @@ Interactive test block selection and execution workflow using fzf.
 Provides a two-stage fuzzy finding process:
 1. Filter test files based on `fuzzy_file` query
 2. Select specific test blocks from filtered files based on `fuzzy_testset` query
-
-Selected test blocks are executed immediately with results saved to the package's
-results file. The latest evaluation is stored in `LATEST_EVAL[]` for reference.
-
-# Arguments
-- `interfaces::Vector{<:TestBlockInterface}`: Test block interfaces for parsing
-- `fuzzy_file::AbstractString`: Query pattern for filtering test files
-- `fuzzy_testset::AbstractString`: Query pattern for filtering test block names
-
-# Side Effects
-- Executes selected test blocks
-- Updates `LATEST_EVAL[]` with executed tests
-- Cleans and writes to results file
-- May modify package test state
-
-# Examples
-```julia
-# Find and run tests matching "math" files and "addition" test names
-fzf_testblock([StdTestset()], "math", "addition")
-```
 """
 function fzf_testblock(
     interfaces::Vector{<:TestBlockInterface},
