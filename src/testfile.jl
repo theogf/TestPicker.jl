@@ -18,16 +18,11 @@ function select_test_files(query::AbstractString, pkg::PackageSpec=current_pkg()
         "--scheme=path",
         "--query", # Initial file query.
         query,
-        "--bind",
-        "ctrl-b:become:echo {+} | sed 's/^/@testblock /'",
     ]
     cmd = `$(fzf()) $(fzf_args)`
-    io = IOBuffer()
-    # files = readlines(
-    pipeline(Cmd(cmd; ignorestatus=true, dir=root); stdin=IOBuffer(join(files, '\n')))
-    # )
-    @show String(take!(io))
-    @show files
+    files = readlines(
+        pipeline(Cmd(cmd; ignorestatus=true, dir=root); stdin=IOBuffer(join(files, '\n')))
+    )
     if isempty(files)
         @debug "Could not find any relevant files with query \"$query\"."
         files
