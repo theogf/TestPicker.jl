@@ -39,6 +39,28 @@
                 matched_files = [first(test_files)]
                 build_info_to_syntax([interface], root, matched_files)
             end
+
+            # Precompile Cmd and pipeline construction (without executing)
+            # This covers the fzf command construction overhead
+            tmpfile = tempname()
+            fzf_args = ["-m", "--query", "test", "--filter", "test"]
+            fzf_cmd = `$(fzf()) $(fzf_args)`
+
+            # Just construct the Cmd object, don't run it
+            Cmd(fzf_cmd; ignorestatus=true, dir=root)
+
+            # Construct pipeline object without executing
+            test_pipeline = pipeline(
+                Cmd(fzf_cmd; ignorestatus=true, dir=root);
+                stdin=IOBuffer("test\n")
+            )
+
+            # Precompile bat path construction
+            bat_path = get_bat_path()
+            `$(bat_path) --color=always --style=numbers test.jl`
+
+            # Cleanup temp file if created
+            isfile(tmpfile) && rm(tmpfile)
         catch
             # Ignore errors during precompilation workload
         end
