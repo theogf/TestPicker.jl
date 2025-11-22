@@ -226,6 +226,35 @@ function testblock_list(
 end
 
 """
+    fzf_testblock_from_files(interfaces, matched_files, fuzzy_testset, pkg, root) -> Nothing
+
+Interactive test block selection and execution from a list of matched files.
+
+Takes a list of already-filtered files and presents an fzf interface to select
+specific test blocks from those files based on `fuzzy_testset` query.
+"""
+function fzf_testblock_from_files(
+    interfaces::Vector{<:TestBlockInterface},
+    matched_files::AbstractVector{<:AbstractString},
+    fuzzy_testset::AbstractString,
+    pkg::PackageSpec,
+    root::AbstractString,
+)
+    # We create  the collection of testsets based on the list of files.
+    info_to_syntax, display_to_info = build_info_to_syntax(interfaces, root, matched_files)
+
+    choices = pick_testblock(display_to_info, fuzzy_testset, root)
+    if !isempty(choices)
+        tests = testblock_list(choices, info_to_syntax, display_to_info, pkg)
+        clean_results_file(pkg)
+        LATEST_EVAL[] = tests
+        for test in tests
+            eval_in_module(test, pkg)
+        end
+    end
+end
+
+"""
     fzf_testblock(interfaces, fuzzy_file, fuzzy_testset) -> Nothing
 
 Interactive test block selection and execution workflow using fzf.
@@ -243,16 +272,5 @@ function fzf_testblock(
     root, test_files = get_test_files(pkg)
     # We fetch all valid test files.
     matched_files = get_matching_files(fuzzy_file, test_files)
-    # We create  the collection of testsets based on the list of files.
-    info_to_syntax, display_to_info = build_info_to_syntax(interfaces, root, matched_files)
-
-    choices = pick_testblock(display_to_info, fuzzy_testset, root)
-    if !isempty(choices)
-        tests = testblock_list(choices, info_to_syntax, display_to_info, pkg)
-        clean_results_file(pkg)
-        LATEST_EVAL[] = tests
-        for test in tests
-            eval_in_module(test, pkg)
-        end
-    end
+    fzf_testblock_from_files(interfaces, matched_files, fuzzy_testset, pkg, root)
 end
