@@ -14,6 +14,7 @@ using Revise: Revise
 using Test
 using TestEnv
 using TestEnv: TestEnvError, get_test_dir, isinstalled!
+using PrecompileTools
 
 export clear_testenv_cache
 export TestBlockInterface, add_interface!, replace_interface!
@@ -63,6 +64,7 @@ include("testblockinterface.jl")
 include("testblock.jl")
 include("repl.jl")
 include("results_viewer.jl")
+include("precompilation.jl")
 
 """
     INTERFACES
