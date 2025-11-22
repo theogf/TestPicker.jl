@@ -24,21 +24,16 @@ Returns the selected items as a vector of strings.
 function run_fzf_with_inputs(
     items::Vector{String}, inputs::Vector{String}, fzf_args::Vector{String}=String[]
 )
-    # Create a pipe for stdin and stdout
-    stdin_read, stdin_write = Base.pipe()
-    stdout_read, stdout_write = Base.pipe()
+    # NOTE: This is a placeholder function demonstrating the signature for full PTY-based testing.
+    # For testing purposes, we use fzf's --filter mode which doesn't require interaction.
+    # A full implementation would require:
+    # 1. PTY (pseudo-terminal) creation
+    # 2. Running fzf as a subprocess with the PTY
+    # 3. Sending keyboard input sequences (inputs) to the PTY
+    # 4. Reading output from fzf
+    # See documentation below for implementation approaches.
 
-    # Write items to stdin
-    for item in items
-        println(stdin_write, item)
-    end
-    close(stdin_write)
-
-    # For testing purposes, we use fzf's --filter mode which doesn't require interaction
-    # In a full implementation, we would need PTY manipulation to send actual keystrokes
-    # This is a simplified version for demonstration
-
-    return String[]  # Placeholder for actual implementation
+    return String[]  # Placeholder - actual testing uses filter mode or simulation
 end
 
 """
@@ -118,11 +113,14 @@ end
     line_start = 3
     line_end = 5
 
-    # Construct the display format (this mirrors what's in testblock.jl)
+    # Construct the display format (this mirrors what's in testblock.jl build_info_to_syntax)
+    # Note: Actual max lengths are computed dynamically in the implementation
+    # These are example values for testing the format structure
     max_label_length = 20
     max_filename_length = 15
     visible_text = "$(rpad(test_label, max_label_length + 2)) | $(lpad(file_name, max_filename_length + 2)):$(line_start)-$(line_end)"
 
+    # Test that all expected components are present in the formatted string
     @test occursin(test_label, visible_text)
     @test occursin(file_name, visible_text)
     @test occursin("3-5", visible_text)
@@ -217,11 +215,14 @@ end
 
     # Test that we can filter files (simulating fzf's --filter mode)
     sandbox_files = filter(f -> occursin("sandbox", f), files)
-    @test length(sandbox_files) >= 3  # test-a, test-b, weird-name at minimum
+    @test length(sandbox_files) >= 3  # Expect at least: test-a, test-b, weird-name
+    @test "sandbox/test-a.jl" in sandbox_files
+    @test "sandbox/test-b.jl" in sandbox_files
+    @test "sandbox/weird-name.jl" in sandbox_files
 
     # Test filtering with specific query (like user typing in fzf)
     test_a_matches = filter(f -> occursin("test-a", f), files)
-    @test any(f -> f == "sandbox/test-a.jl", test_a_matches)
+    @test "sandbox/test-a.jl" in test_a_matches
 end
 
 @testset "Integration: testblock format and parsing" begin
@@ -235,6 +236,8 @@ end
     line_end = 8
 
     # Build display string as done in pick_testblock
+    # Note: In the actual implementation, max lengths are computed dynamically from all testblocks
+    # These are example values for testing the format structure
     max_label_length = 30
     max_filename_length = 20
     separator_char = "\t"
