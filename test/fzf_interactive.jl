@@ -47,38 +47,6 @@ function run_fzf_interactive(
     return result
 end
 
-"""
-    test_fzf_with_terminal(test_func, inputs::Vector{String})
-
-Test an interactive function using TerminalRegressionTests.automated_test.
-
-This creates an emulated terminal and sends the specified inputs to the test function.
-Designed to be used with Julia's do-block syntax:
-
-    test_fzf_with_terminal(["input1\\n", "input2\\n"]) do emuterm
-        # Test code that uses emuterm
-    end
-
-The do-block becomes the first parameter (test_func) and inputs is the second parameter.
-"""
-function test_fzf_with_terminal(inputs::Vector{String})
-    return function(test_func)
-        test_output_file = tempname() * ".multiout"
-        
-        try
-            TerminalRegressionTests.automated_test(test_output_file, inputs) do emuterm
-                test_func(emuterm)
-            end
-        catch e
-            if !(e isa SystemError || e isa ErrorException)
-                rethrow()
-            end
-        finally
-            isfile(test_output_file) && rm(test_output_file)
-        end
-    end
-end
-
 @testset "fzf with simulated keyboard input - single selection" begin
     # Test fzf with keyboard input using TerminalRegressionTests
     items = ["sandbox/test-a.jl", "sandbox/test-b.jl", "sandbox/weird-name.jl"]
@@ -203,7 +171,7 @@ end
             @test query == "test-a"
             
             # Simulate processing and showing result
-            println(emuterm, "[ Info: Executing test file test-a.jl")
+            println(emuterm, "Executing test file test-a.jl")
         end
     catch e
         if !(e isa SystemError || e isa ErrorException)
