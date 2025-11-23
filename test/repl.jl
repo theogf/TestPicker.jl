@@ -1,8 +1,9 @@
 using TestPicker
 using Test
-using TestPicker: create_repl_test_mode, identify_query
-using TestPicker: TestFileQuery, LatestEval, TestsetQuery, UnmatchedQuery
+using TestPicker: create_repl_test_mode, identify_query, print_test_docs, HELP_TEXT
+using TestPicker: TestFileQuery, LatestEval, TestsetQuery, UnmatchedQuery, TestModeDocs
 using REPL: REPL, BasicREPL, LineEdit, Terminals, LineEditREPL, run_repl
+using Markdown
 
 # From Pkg.jl/REPLExt
 struct FakeTerminal <: Terminals.UnixTerminal
@@ -39,4 +40,27 @@ end
     @test identify_query("foo") == (TestFileQuery, ("foo", ""))
     @test identify_query("foo:a") == (TestsetQuery, ("foo", "a"))
     @test identify_query(":a") == (TestsetQuery, ("", "a"))
+    @test identify_query("?") == (TestModeDocs, ())
+end
+
+@testset "Help documentation" begin
+    @test HELP_TEXT isa Markdown.MD
+
+    # Test that help text contains key sections
+    help_str = string(HELP_TEXT)
+    @test contains(help_str, "TestPicker Test Mode")
+    @test contains(help_str, "Test File Selection")
+    @test contains(help_str, "Test Block Selection")
+    @test contains(help_str, "Special Commands")
+    @test contains(help_str, "Fuzzy Selection Mode")
+
+    # Test that it mentions key commands
+    @test contains(help_str, "test> -")
+    @test contains(help_str, "test> @")
+    @test contains(help_str, "test> ?")
+
+    # Test that print_test_docs doesn't error
+    redirect_stdout(devnull) do
+        @test print_test_docs() === nothing
+    end
 end

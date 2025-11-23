@@ -58,6 +58,8 @@ test> subdirfile
 
 which will get you a fuzzy search, press enter and the file will be run under the test environment.
 
+The test mode supports **Tab completion** on test file names for convenience.
+
 ```julia-repl
 [ Info: Executing test file /home/theo/.julia/dev/TestPicker/test/test-subdir/test-file-c.jl
 ```
@@ -96,7 +98,7 @@ Once you have your interface created you can make `TestPicker` use it with `add_
 
 ### Repeating latest test
 
-After running a collection of test files and/or testsets you can just repeat the same operation by calling `-`(in the samme fashion as `cd -`):
+After running a collection of test files and/or testsets you can just repeat the same operation by calling `-` (in the same fashion as `cd -`):
 
 ```julia-repl
 test> test-a
@@ -112,12 +114,22 @@ TestPicker - /home/theo/.julia/dev/TestPicker/test/sandbox/test-a.jl |    1     
 
 ### Inspecting test results
 
-After running tests, the `TestSet` summary is shown but you can inspect results further with `?`.
+After running tests, the `TestSet` summary is shown but you can inspect results further with `@`.
 
 It will show a list of the tests that errored and failed with a preview of their stacktrace.
 You can edit the selected test with `Ctrl+e` or inspect the stacktrace for errored tests with `Enter`.
 It is also possible to inspect the stacktrace as a list with a preview of the source when possible and
 `Ctrl+e` edit the source of the current trace.
+
+### Getting help
+
+Type `?` in test mode to see a quick reference of all available commands and features:
+
+```julia-repl
+test> ?
+```
+
+This displays a color-highlighted help message with all test mode operations, keyboard shortcuts, and usage examples.
 
 ### Execution 
 

@@ -154,7 +154,7 @@ end
 
 Enumeration of different types of test queries supported by the test REPL mode.
 """
-@enum QueryType TestFileQuery TestsetQuery LatestEval InspectResults UnmatchedQuery
+@enum QueryType TestFileQuery TestsetQuery TestModeDocs LatestEval InspectResults UnmatchedQuery
 
 """
     identify_query(input::AbstractString) -> (QueryType, Tuple)
@@ -172,8 +172,10 @@ function identify_query(input::AbstractString)
         else
             LatestEval, LATEST_EVAL[]
         end
-    elseif strip(input) == "?"
+    elseif strip(input) == "@"
         InspectResults, ()
+    elseif strip(input) == "?"
+        TestModeDocs, ()
     else
         m = match(r"(.*):(.*)", input)
         if !isnothing(m)
@@ -211,6 +213,8 @@ function test_mode_do_cmd(repl::AbstractREPL, input::String)
         for expr in inputs
             eval_in_module(expr, pkg)
         end
+    elseif test_type == TestModeDocs
+        print_test_docs()
     elseif test_type == InspectResults
         visualize_test_results(repl)
     else
