@@ -13,6 +13,7 @@ using REPL: LineEdit, Terminals
 using Revise: Revise
 using Test
 using TestEnv
+using Markdown
 using TestEnv: TestEnvError, get_test_dir, isinstalled!
 using PrecompileTools
 
@@ -62,6 +63,7 @@ include("eval.jl")
 include("testfile.jl")
 include("testblockinterface.jl")
 include("testblock.jl")
+include("docs.jl")
 include("repl.jl")
 include("results_viewer.jl")
 include("precompilation.jl")
