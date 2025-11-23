@@ -32,7 +32,7 @@ we use fzf's --filter mode as a reliable alternative that tests the same fuzzy m
 using Expect
 
 # Spawn fzf with PTY
-proc = ExpectProc(`fzf`, 16*1024, stdin=join(items, '\\n'))
+proc = ExpectProc(`fzf`, 16*1024, stdin=join(items, "\\n"))
 
 # Wait for fzf to be ready
 expect!(proc, r".*")
@@ -54,7 +54,7 @@ close(proc)
 function run_fzf_with_expect(
     items::Vector{String}, keystrokes::Vector{String}; fzf_args::Vector{String}=String[]
 )
-    input_data = join(items, '\n')
+    input_data = join(items, "\n")
     result = String[]
     
     # Convert keystrokes to query string (for filter mode fallback)
