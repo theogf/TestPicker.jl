@@ -59,6 +59,8 @@ end
     @test contains(help_str, "test> @")
     @test contains(help_str, "test> ?")
 
-    # Test that print_test_docs doesn't error and produces output
-    @test print_test_docs() === nothing
+    # Test that print_test_docs doesn't error
+    redirect_stdout(devnull) do
+        @test print_test_docs() === nothing
+    end
 end
