@@ -47,6 +47,44 @@ function init_test_repl_mode(repl::AbstractREPL)
 end
 
 """
+    TestModeCompletionProvider
+
+Completion provider for test mode that suggests test file names.
+"""
+struct TestModeCompletionProvider <: REPL.LineEdit.CompletionProvider end
+
+"""
+    complete_line(::TestModeCompletionProvider, s::LineEdit.PromptState)
+
+Provide completions based on available test file names (without paths).
+"""
+function REPL.complete_line(::TestModeCompletionProvider, s::LineEdit.PromptState)
+    partial = String(take!(copy(LineEdit.buffer(s))))
+
+    # Don't complete if ':' is present (testset query mode)
+    if contains(partial, ':')
+        return (String[], partial, false)
+    end
+
+    # Try to get test files - if it fails, return empty completions
+    try
+        pkg = current_pkg()
+        _, files = get_test_files(pkg)
+
+        # Extract just the base file names (without path, but keep .jl extension)
+        file_names = unique([basename(f) for f in files])
+
+        # Filter completions based on partial input
+        completions = filter(name -> startswith(name, partial), file_names)
+
+        return (completions, partial, !isempty(completions))
+    catch
+        # If we can't get test files, return empty completions
+        return (String[], partial, false)
+    end
+end
+
+"""
     create_repl_test_mode(repl::AbstractREPL, main::LineEdit.Prompt) -> LineEdit.Prompt
 
 Create a new REPL mode specifically for test operations.
@@ -61,6 +99,7 @@ function create_repl_test_mode(repl::AbstractREPL, main::LineEdit.Prompt)
         prompt_prefix=repl.options.hascolor ? Base.text_colors[:magenta] : "",
         prompt_suffix="",
         sticky=true,
+        complete=TestModeCompletionProvider(),
     )
     # This function is called when the user hits return after typing a command.
     test_mode.on_done = function (s, buf::IOBuffer, ok)
