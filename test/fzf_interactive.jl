@@ -6,50 +6,38 @@ using Pkg.Types: PackageSpec
 using fzf_jll: fzf
 
 """
-    run_fzf_interactive(items::Vector{String}, inputs::String; fzf_args::Vector{String}=String[])
+    run_fzf_interactive(items::Vector{String}, query::String; fzf_args::Vector{String}=String[])
 
-Run fzf interactively with an emulated terminal and simulated keyboard inputs.
+Test fzf's fuzzy matching behavior using filter mode.
 
-This function uses TerminalRegressionTests to:
-1. Create an EmulatedTerminal
-2. Run fzf as a subprocess connected to the terminal
-3. Send keyboard inputs to fzf
-4. Capture and return the selected output
+Note: fzf directly accesses /dev/tty in interactive mode, making it difficult to integrate
+with TerminalRegressionTests. This function uses fzf's `--filter` mode instead, which:
+- Tests the core fuzzy matching algorithm
+- Avoids PTY complexities
+- Provides deterministic, testable behavior
+
+For true interactive testing with keyboard events, fzf would need to be spawned with
+a PTY connected to an EmulatedTerminal, which requires special handling of terminal
+raw mode and escape sequences.
 
 # Arguments
-- `items`: List of items to present in fzf
-- `inputs`: String containing input to send to fzf (can include special sequences like \\n for Enter)
+- `items`: List of items to present to fzf
+- `query`: Search query to filter items (equivalent to user typing this in interactive mode)
 - `fzf_args`: Additional arguments to pass to fzf (default: empty)
 
 # Returns
-- Vector of selected items (strings)
+- Vector of items matching the query
 """
 function run_fzf_interactive(
-    items::Vector{String}, inputs::String; fzf_args::Vector{String}=String[]
+    items::Vector{String}, query::String; fzf_args::Vector{String}=String[]
 )
-    emuterm = TerminalRegressionTests.EmulatedTerminal()
-    
     # Prepare input for fzf
     input_data = join(items, '\n')
     
-    # Run fzf with the emulated terminal
-    # We use fzf in a mode that can work with our emulated terminal
-    cmd = `$(fzf()) $(fzf_args)`
-    
     result = String[]
     try
-        # Create a task to run fzf
-        output_buffer = IOBuffer()
-        
-        # For actual interactive testing, we'd need to:
-        # 1. Spawn fzf with the emulated terminal's PTY
-        # 2. Write input_data to fzf's stdin
-        # 3. Send keyboard inputs to the PTY
-        # 4. Read the output
-        
-        # However, fzf directly accesses /dev/tty, so we use filter mode
-        # which provides equivalent functionality for testing purposes
-        filter_cmd = `$(fzf()) --filter $(inputs) $(fzf_args)`
+        # Use fzf's filter mode to test fuzzy matching without interactive terminal
+        filter_cmd = `$(fzf()) --filter $(query) $(fzf_args)`
         result = readlines(pipeline(filter_cmd; stdin=IOBuffer(input_data)))
     catch e
         # If fzf fails, return empty
@@ -65,20 +53,29 @@ end
 Test an interactive function using TerminalRegressionTests.automated_test.
 
 This creates an emulated terminal and sends the specified inputs to the test function.
+Designed to be used with Julia's do-block syntax:
+
+    test_fzf_with_terminal(["input1\\n", "input2\\n"]) do emuterm
+        # Test code that uses emuterm
+    end
+
+The do-block becomes the first parameter (test_func) and inputs is the second parameter.
 """
-function test_fzf_with_terminal(test_func, inputs::Vector{String})
-    test_output_file = tempname() * ".multiout"
-    
-    try
-        TerminalRegressionTests.automated_test(test_output_file, inputs) do emuterm
-            test_func(emuterm)
+function test_fzf_with_terminal(inputs::Vector{String})
+    return function(test_func)
+        test_output_file = tempname() * ".multiout"
+        
+        try
+            TerminalRegressionTests.automated_test(test_output_file, inputs) do emuterm
+                test_func(emuterm)
+            end
+        catch e
+            if !(e isa SystemError || e isa ErrorException)
+                rethrow()
+            end
+        finally
+            isfile(test_output_file) && rm(test_output_file)
         end
-    catch e
-        if !(e isa SystemError || e isa ErrorException)
-            rethrow()
-        end
-    finally
-        isfile(test_output_file) && rm(test_output_file)
     end
 end
 
@@ -167,18 +164,27 @@ end
     # Use TerminalRegressionTests.automated_test to test interactive programs
     # This test simulates a user typing responses to prompts
     
-    test_fzf_with_terminal(["file1\n", "Yes\n"]) do emuterm
-        # Simulate an interactive prompt asking for a filename
-        print(emuterm, "Enter filename: ")
-        filename = strip(readline(emuterm))
-        @test filename == "file1"
-        
-        # Simulate a confirmation prompt
-        print(emuterm, "Confirm selection (Yes/No)? ")
-        confirmation = strip(readline(emuterm))
-        @test confirmation == "Yes"
-        
-        println(emuterm, "Selected: ", filename)
+    test_output_file = tempname() * ".multiout"
+    try
+        TerminalRegressionTests.automated_test(test_output_file, ["file1\n", "Yes\n"]) do emuterm
+            # Simulate an interactive prompt asking for a filename
+            print(emuterm, "Enter filename: ")
+            filename = strip(readline(emuterm))
+            @test filename == "file1"
+            
+            # Simulate a confirmation prompt
+            print(emuterm, "Confirm selection (Yes/No)? ")
+            confirmation = strip(readline(emuterm))
+            @test confirmation == "Yes"
+            
+            println(emuterm, "Selected: ", filename)
+        end
+    catch e
+        if !(e isa SystemError || e isa ErrorException)
+            rethrow()
+        end
+    finally
+        isfile(test_output_file) && rm(test_output_file)
     end
 end
 
@@ -186,16 +192,25 @@ end
     # Test REPL-style interaction using TerminalRegressionTests
     # Simulates the kind of interaction TestPicker's REPL mode provides
     
-    test_fzf_with_terminal(["test-a\n"]) do emuterm
-        # Simulate REPL prompt
-        print(emuterm, "test> ")
-        
-        # Read user input (simulated)
-        query = strip(readline(emuterm))
-        @test query == "test-a"
-        
-        # Simulate processing and showing result
-        println(emuterm, "[ Info: Executing test file test-a.jl")
+    test_output_file = tempname() * ".multiout"
+    try
+        TerminalRegressionTests.automated_test(test_output_file, ["test-a\n"]) do emuterm
+            # Simulate REPL prompt
+            print(emuterm, "test> ")
+            
+            # Read user input (simulated)
+            query = strip(readline(emuterm))
+            @test query == "test-a"
+            
+            # Simulate processing and showing result
+            println(emuterm, "[ Info: Executing test file test-a.jl")
+        end
+    catch e
+        if !(e isa SystemError || e isa ErrorException)
+            rethrow()
+        end
+    finally
+        isfile(test_output_file) && rm(test_output_file)
     end
 end
 
@@ -203,21 +218,30 @@ end
     # Test multi-step interactive workflow
     # This simulates navigating through options using keyboard input
     
-    test_fzf_with_terminal(["2\n", "confirm\n"]) do emuterm
-        # Present options
-        println(emuterm, "1. Option A")
-        println(emuterm, "2. Option B")
-        println(emuterm, "3. Option C")
-        print(emuterm, "Select option: ")
-        
-        choice = strip(readline(emuterm))
-        @test choice == "2"
-        
-        print(emuterm, "Type 'confirm' to proceed: ")
-        confirm = strip(readline(emuterm))
-        @test confirm == "confirm"
-        
-        println(emuterm, "Executing Option B")
+    test_output_file = tempname() * ".multiout"
+    try
+        TerminalRegressionTests.automated_test(test_output_file, ["2\n", "confirm\n"]) do emuterm
+            # Present options
+            println(emuterm, "1. Option A")
+            println(emuterm, "2. Option B")
+            println(emuterm, "3. Option C")
+            print(emuterm, "Select option: ")
+            
+            choice = strip(readline(emuterm))
+            @test choice == "2"
+            
+            print(emuterm, "Type 'confirm' to proceed: ")
+            confirm = strip(readline(emuterm))
+            @test confirm == "confirm"
+            
+            println(emuterm, "Executing Option B")
+        end
+    catch e
+        if !(e isa SystemError || e isa ErrorException)
+            rethrow()
+        end
+    finally
+        isfile(test_output_file) && rm(test_output_file)
     end
 end
 
@@ -225,32 +249,50 @@ end
     # Test TestPicker REPL mode query identification using terminal emulation
     using TestPicker: identify_query, TestFileQuery, TestsetQuery
     
-    test_fzf_with_terminal(["test-a\n"]) do emuterm
-        # Simulate REPL prompt
-        print(emuterm, "test> ")
-        
-        # Read user query
-        query = strip(readline(emuterm))
-        
-        # Test query identification (same logic as REPL mode)
-        query_type, inputs = identify_query(query)
-        @test query_type == TestFileQuery
-        @test inputs == (query, "")
-        
-        println(emuterm, "Query type: file selection")
+    test_output_file1 = tempname() * ".multiout"
+    try
+        TerminalRegressionTests.automated_test(test_output_file1, ["test-a\n"]) do emuterm
+            # Simulate REPL prompt
+            print(emuterm, "test> ")
+            
+            # Read user query
+            query = strip(readline(emuterm))
+            
+            # Test query identification (same logic as REPL mode)
+            query_type, inputs = identify_query(query)
+            @test query_type == TestFileQuery
+            @test inputs == (query, "")
+            
+            println(emuterm, "Query type: file selection")
+        end
+    catch e
+        if !(e isa SystemError || e isa ErrorException)
+            rethrow()
+        end
+    finally
+        isfile(test_output_file1) && rm(test_output_file1)
     end
     
-    test_fzf_with_terminal(["file:testset\n"]) do emuterm
-        # Simulate testset query
-        print(emuterm, "test> ")
-        query = strip(readline(emuterm))
-        
-        query_type, inputs = identify_query(query)
-        @test query_type == TestsetQuery
-        @test inputs[1] == "file"
-        @test inputs[2] == "testset"
-        
-        println(emuterm, "Query type: testset selection")
+    test_output_file2 = tempname() * ".multiout"
+    try
+        TerminalRegressionTests.automated_test(test_output_file2, ["file:testset\n"]) do emuterm
+            # Simulate testset query
+            print(emuterm, "test> ")
+            query = strip(readline(emuterm))
+            
+            query_type, inputs = identify_query(query)
+            @test query_type == TestsetQuery
+            @test inputs[1] == "file"
+            @test inputs[2] == "testset"
+            
+            println(emuterm, "Query type: testset selection")
+        end
+    catch e
+        if !(e isa SystemError || e isa ErrorException)
+            rethrow()
+        end
+    finally
+        isfile(test_output_file2) && rm(test_output_file2)
     end
 end
 
