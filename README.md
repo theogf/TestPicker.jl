@@ -98,7 +98,7 @@ Once you have your interface created you can make `TestPicker` use it with `add_
 
 ### Repeating latest test
 
-After running a collection of test files and/or testsets you can just repeat the same operation by calling `-`(in the samme fashion as `cd -`):
+After running a collection of test files and/or testsets you can just repeat the same operation by calling `-` (in the same fashion as `cd -`):
 
 ```julia-repl
 test> test-a
