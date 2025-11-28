@@ -2,8 +2,8 @@
 
 <div align="center">
   <picture>
-    <source srcset="assets/logo-dark-mode.png" media="(prefers-color-scheme: dark)">
-    <img src="assets/logo-light-mode.png">
+    <source srcset="assets/logo_dark.png" media="(prefers-color-scheme: dark)">
+    <img src="assets/logo_light.png">
   </picture>
 </div>
 
