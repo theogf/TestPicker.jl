@@ -1,9 +1,11 @@
 # TestPicker
 
-<picture>
-  <source srcset="images/logo-dark-mode.png" media="(prefers-color-scheme: dark)">
-  <img src="images/logo-light-mode.png">
-</picture>
+<div align="center">
+  <picture>
+    <source srcset="assets/logo-dark-mode.png" media="(prefers-color-scheme: dark)">
+    <img src="assets/logo-light-mode.png">
+  </picture>
+</div>
 
 [![Stable](https://img.shields.io/badge/docs-stable-blue.svg)](https://theogf.dev/TestPicker.jl/stable/)
 [![Dev](https://img.shields.io/badge/docs-dev-blue.svg)](https://theogf.dev/TestPicker.jl/dev/)
