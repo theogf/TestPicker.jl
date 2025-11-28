@@ -1,5 +1,10 @@
 # TestPicker
 
+<picture>
+  <source srcset="images/logo-dark-mode.png" media="(prefers-color-scheme: dark)">
+  <img src="images/logo-light-mode.png">
+</picture>
+
 [![Stable](https://img.shields.io/badge/docs-stable-blue.svg)](https://theogf.dev/TestPicker.jl/stable/)
 [![Dev](https://img.shields.io/badge/docs-dev-blue.svg)](https://theogf.dev/TestPicker.jl/dev/)
 [![Build Status](https://github.com/theogf/TestPicker.jl/actions/workflows/CI.yml/badge.svg?branch=main)](https://github.com/theogf/TestPicker.jl/actions/workflows/CI.yml?query=branch%3Amain)
