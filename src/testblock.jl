@@ -155,19 +155,37 @@ function build_info_to_syntax(
 end
 
 """
-    pick_testblock(tabled_keys, testset_query, root) -> Vector{String}
+    pick_testblock(tabled_keys, testset_query, root; interactive::Bool=true) -> Vector{String}
 
-Present an interactive fzf interface for selecting test blocks to execute.
+Select test blocks to execute based on a fuzzy search query.
 
-Launches fzf with a preview window (using bat) that allows users to select one or more
-test blocks from the filtered list. The preview shows the actual test code with syntax
-highlighting.
+If `interactive=true` (default), launches fzf with a preview window (using bat) that allows
+users to select one or more test blocks from the filtered list. The preview shows the actual
+test code with syntax highlighting.
+
+If `interactive=false`, uses fzf's filter mode to non-interactively return all matching test blocks.
 """
 function pick_testblock(
     tabled_keys::Dict{String,TestBlockInfo},
     testset_query::AbstractString,
-    root::AbstractString,
+    root::AbstractString;
+    interactive::Bool=true,
 )
+    if !interactive
+        # Non-interactive mode: use fzf --filter to get matching test blocks
+        args = [
+            "--filter",
+            testset_query,
+            "-d",
+            "$(separator())",
+            "--nth",
+            "1",
+        ]
+        cmd = Cmd(`$(fzf()) $(args)`; ignorestatus=true, dir=root)
+        return readlines(pipeline(cmd; stdin=IOBuffer(join(keys(tabled_keys), '\n'))))
+    end
+
+    # Interactive mode (original behavior)
     bat_preview = "$(get_bat_path()) --color always --line-range {3}:{4} {2}"
     # Leave the user the choice of a testset.
     args = [
@@ -226,24 +244,28 @@ function testblock_list(
 end
 
 """
-    fzf_testblock_from_files(interfaces, matched_files, fuzzy_testset, pkg, root) -> Nothing
+    fzf_testblock_from_files(interfaces, matched_files, fuzzy_testset, pkg, root; interactive::Bool=true) -> Nothing
 
-Interactive test block selection and execution from a list of matched files.
+Test block selection and execution from a list of matched files.
 
-Takes a list of already-filtered files and presents an fzf interface to select
-specific test blocks from those files based on `fuzzy_testset` query.
+If `interactive=true` (default), presents an fzf interface to select specific test blocks
+from those files based on `fuzzy_testset` query.
+
+If `interactive=false`, uses fzf's filter mode to non-interactively select and run all
+matching test blocks.
 """
 function fzf_testblock_from_files(
     interfaces::Vector{<:TestBlockInterface},
     matched_files::AbstractVector{<:AbstractString},
     fuzzy_testset::AbstractString,
     pkg::PackageSpec,
-    root::AbstractString,
+    root::AbstractString;
+    interactive::Bool=true,
 )
     # We create  the collection of testsets based on the list of files.
     info_to_syntax, display_to_info = build_info_to_syntax(interfaces, root, matched_files)
 
-    choices = pick_testblock(display_to_info, fuzzy_testset, root)
+    choices = pick_testblock(display_to_info, fuzzy_testset, root; interactive)
     if !isempty(choices)
         tests = testblock_list(choices, info_to_syntax, display_to_info, pkg)
         clean_results_file(pkg)
@@ -255,22 +277,26 @@ function fzf_testblock_from_files(
 end
 
 """
-    fzf_testblock(interfaces, fuzzy_file, fuzzy_testset) -> Nothing
+    fzf_testblock(interfaces, fuzzy_file, fuzzy_testset; interactive::Bool=true) -> Nothing
 
-Interactive test block selection and execution workflow using fzf.
+Test block selection and execution workflow using fzf.
 
 Provides a two-stage fuzzy finding process:
 1. Filter test files based on `fuzzy_file` query
 2. Select specific test blocks from filtered files based on `fuzzy_testset` query
+
+If `interactive=true` (default), uses fzf's interactive mode for selecting test blocks.
+If `interactive=false`, uses fzf's filter mode to non-interactively select and run all matching test blocks.
 """
 function fzf_testblock(
     interfaces::Vector{<:TestBlockInterface},
     fuzzy_file::AbstractString,
-    fuzzy_testset::AbstractString,
+    fuzzy_testset::AbstractString;
+    interactive::Bool=true,
 )
     pkg = current_pkg()
     root, test_files = get_test_files(pkg)
     # We fetch all valid test files.
     matched_files = get_matching_files(fuzzy_file, test_files)
-    fzf_testblock_from_files(interfaces, matched_files, fuzzy_testset, pkg, root)
+    fzf_testblock_from_files(interfaces, matched_files, fuzzy_testset, pkg, root; interactive)
 end

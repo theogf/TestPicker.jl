@@ -204,9 +204,9 @@ function test_mode_do_cmd(repl::AbstractREPL, input::String)
     @debug "Running $(test_type) with inputs $(inputs...)"
 
     if test_type == TestFileQuery
-        fzf_testfile(first(inputs))
+        fzf_testfile(first(inputs); interactive=true)
     elseif test_type == TestsetQuery
-        fzf_testblock(INTERFACES, inputs...)
+        fzf_testblock(INTERFACES, inputs...; interactive=true)
     elseif test_type == LatestEval
         pkg = current_pkg()
         clean_results_file(pkg)
