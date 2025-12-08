@@ -108,3 +108,32 @@ end"""
     @test no_indentation.(JuliaSyntax.sourcetext.(last_syntax_block.preamble)) ==
         ["using Test", "x = 5"]
 end
+
+@testset "Non-interactive testblock selection" begin
+    root = joinpath(pkgdir(TestPicker), "test", "sandbox")
+    file = "test-a.jl"
+    interfaces = [StdTestset()]
+    full_map, tabled_keys = build_info_to_syntax(interfaces, root, [file])
+
+    # Test selecting testblocks with a query that matches
+    choices = pick_testblock(tabled_keys, "testset", root; interactive=false)
+    @test !isempty(choices)
+    @test length(choices) == 1  # Only one testset in test-a.jl
+
+    # Test selecting testblocks with a query that doesn't match
+    choices = pick_testblock(tabled_keys, "nonexistent", root; interactive=false)
+    @test isempty(choices)
+
+    # Test with multiple files and nested testsets
+    root_subdir = joinpath(pkgdir(TestPicker), "test", "sandbox", "test-subdir")
+    file_c = "test-file-c.jl"
+    full_map_c, tabled_keys_c = build_info_to_syntax(interfaces, root_subdir, [file_c])
+
+    # Should match both "First level" testsets
+    choices = pick_testblock(tabled_keys_c, "First", root_subdir; interactive=false)
+    @test length(choices) == 2  # "First level" and "First level - B"
+
+    # Should match only "Second level" testset
+    choices = pick_testblock(tabled_keys_c, "Second", root_subdir; interactive=false)
+    @test length(choices) == 1
+end

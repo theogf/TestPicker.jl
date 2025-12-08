@@ -1,18 +1,38 @@
 """
-    select_test_files(query::AbstractString, pkg::PackageSpec=current_pkg()) -> (Symbol, String, Vector{String})
+    select_test_files(query::AbstractString, pkg::PackageSpec=current_pkg(); interactive::Bool=true) -> (Symbol, String, Vector{String})
 
-Interactively select test files using fzf based on a fuzzy search query.
+Select test files using fzf based on a fuzzy search query.
 
-Presents an fzf interface showing all test files for the package, with syntax-highlighted
-preview using bat. Users can select multiple files and the query pre-filters the results.
+If `interactive=true` (default), presents an fzf interface showing all test files for the package,
+with syntax-highlighted preview using bat. Users can select multiple files and the query pre-filters the results.
+
+If `interactive=false`, uses fzf's filter mode to non-interactively return all matching files.
 
 Returns a tuple of (mode, root, files) where:
-- mode is either :file or :testblock depending on whether the user pressed Enter or Ctrl+B
+- mode is either :file or :testblock depending on whether the user pressed Enter or Ctrl+B (interactive mode only, always :file in non-interactive mode)
 - root is the test directory path
 - files are relative paths (not joined with root yet)
 """
-function select_test_files(query::AbstractString, pkg::PackageSpec=current_pkg())
+function select_test_files(query::AbstractString, pkg::PackageSpec=current_pkg(); interactive::Bool=true)
     root, files = get_test_files(pkg)
+
+    if !interactive
+        # Non-interactive mode: use fzf --filter to get matching files
+        matched_files = readlines(
+            pipeline(
+                Cmd(`$(fzf()) --filter $(query)`; ignorestatus=true);
+                stdin=IOBuffer(join(files, '\n')),
+            ),
+        )
+        if isempty(matched_files)
+            @debug "Could not find any relevant files with query \"$query\"."
+            return (:file, root, String[])
+        else
+            return (:file, root, matched_files)
+        end
+    end
+
+    # Interactive mode (original behavior)
     # Create a temporary file for ctrl-b output
     # We need to go through a file to avoid problematic ANSI codes produces by fzf when closing.
     tmpfile = tempname()
@@ -79,20 +99,23 @@ function get_test_dir_from_pkg(pkg::PackageSpec=current_pkg())
 end
 
 """
-    fzf_testfile(query::AbstractString) -> Nothing
+    fzf_testfile(query::AbstractString; interactive::Bool=true) -> Nothing
 
-Interactive test file selection and execution workflow.
+Test file selection and execution workflow.
 
-Combines file selection and execution in a single workflow: uses fzf to select
-test files based on the query, then runs all selected files in the test environment.
-If ctrl-b is pressed during file selection, switches to testblock selection mode instead.
+If `interactive=true` (default), uses fzf to interactively select test files based on the query,
+then runs all selected files in the test environment. If ctrl-b is pressed during file selection,
+switches to testblock selection mode instead.
+
+If `interactive=false`, uses fzf's filter mode to non-interactively select and run all matching
+test files based on the query.
 """
-function fzf_testfile(query::AbstractString)
+function fzf_testfile(query::AbstractString; interactive::Bool=true)
     pkg = current_pkg()
-    mode, root, files = select_test_files(query, pkg)
+    mode, root, files = select_test_files(query, pkg; interactive)
 
     if mode == :testblock
-        # User pressed ctrl-b, switch to testblock mode
+        # User pressed ctrl-b, switch to testblock mode (only possible in interactive mode)
         # Files are already relative paths, just pass them directly
         return fzf_testblock_from_files(INTERFACES, files, "", pkg, root)
     else

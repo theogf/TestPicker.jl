@@ -1,7 +1,7 @@
 using Test
 using Pkg.Types: PackageSpec
 using TestPicker
-using TestPicker: EvalTest, get_test_files, run_test_file
+using TestPicker: EvalTest, get_test_files, run_test_file, select_test_files
 
 @testset "Get test files" begin
     path = pkgdir(TestPicker)
@@ -29,4 +29,28 @@ end
     @test TestPicker.LATEST_EVAL[] isa Vector{EvalTest}
     evaltest = only(TestPicker.LATEST_EVAL[])
     @test evaltest.info.filename == "sandbox/test-a.jl"
+end
+
+@testset "Non-interactive file selection" begin
+    path = pkgdir(TestPicker)
+    pkg_spec = PackageSpec(; name="TestPicker", path)
+
+    # Test selecting files with a query that matches multiple files
+    mode, root, files = select_test_files("test-a", pkg_spec; interactive=false)
+    @test mode == :file
+    @test root == joinpath(path, "test")
+    @test "sandbox/test-a.jl" in files
+
+    # Test selecting files with a query that matches no files
+    mode, root, files = select_test_files("nonexistent-file-xyz", pkg_spec; interactive=false)
+    @test mode == :file
+    @test root == joinpath(path, "test")
+    @test isempty(files)
+
+    # Test selecting files with a broader query
+    mode, root, files = select_test_files("sandbox", pkg_spec; interactive=false)
+    @test mode == :file
+    @test root == joinpath(path, "test")
+    @test length(files) >= 3  # At least test-a, test-b, and weird-name
+    @test any(startswith("sandbox/"), files)
 end
