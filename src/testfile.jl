@@ -148,15 +148,6 @@ function Base.showerror(io::IO, (; file)::MissingFileException)
 end
 
 """
-Results from evaluating a given file. If failed, contains the `TestSetException` in set.
-"""
-struct EvaluatedFile{T}
-    file::String
-    success::Bool
-    set::T
-end
-
-"""
     run_testfiles(files::AbstractVector{<:AbstractString}, pkg::PackageSpec) -> Nothing
 
 Execute a collection of test files in the package test environment.
@@ -212,5 +203,7 @@ function run_testfile(file::AbstractString, pkg::PackageSpec)
     else
         LATEST_EVAL[] = [test]
     end
-    return eval_in_module(test, pkg)
+    result = eval_in_module(test, pkg)
+    # result is nothing when the testset is a success.
+    return EvalResult(isnothing(result), test_info, result)
 end

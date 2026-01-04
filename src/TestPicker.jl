@@ -48,6 +48,17 @@ struct EvalTest
 end
 
 """
+    EvalResult{T}
+    
+Result from evaluating a given `EvalTest`.
+"""
+struct EvalResult{T}
+    success::Bool
+    info::TestInfo
+    result::T
+end
+
+"""
     LATEST_EVAL
 
 Global reference to the most recently executed test evaluations.

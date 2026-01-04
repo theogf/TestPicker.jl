@@ -214,7 +214,7 @@ function testblock_list(
     info_to_syntax::Dict{TestBlockInfo,SyntaxBlock},
     display_to_info::Dict{String,TestBlockInfo},
     pkg::PackageSpec,
-)
+)::Vector{EvalTest}
     map(choices) do choice
         blockinfo = display_to_info[choice]
         syntax_block = info_to_syntax[blockinfo]
@@ -263,8 +263,9 @@ function fzf_testblock_from_files(
         tests = testblock_list(choices, info_to_syntax, display_to_info, pkg)
         clean_results_file(pkg)
         LATEST_EVAL[] = tests
-        for test in tests
-            eval_in_module(test, pkg)
+        map(tests) do test
+            result = eval_in_module(test, pkg)
+            EvalResult(isnothing(result), test.info, result)
         end
     end
 end
