@@ -75,7 +75,7 @@ function get_testblocks!(
 end
 
 """
-    get_matching_files(file_query::AbstractString, test_files::AbstractVector{<:AbstractString}) -> Vector{String}
+    get_matching_files(file_query::AbstractString, testfiles::AbstractVector{<:AbstractString}) -> Vector{String}
 
 Filter test files using fzf's non-interactive filtering based on the given query.
 
@@ -83,12 +83,12 @@ Uses `fzf --filter` to perform fuzzy matching on the provided list of test files
 returning only those that match the query pattern.
 """
 function get_matching_files(
-    file_query::AbstractString, test_files::AbstractVector{<:AbstractString}
+    file_query::AbstractString, testfiles::AbstractVector{<:AbstractString}
 )
     return readlines(
         pipeline(
             Cmd(`$(fzf()) --filter $(file_query)`; ignorestatus=true);
-            stdin=IOBuffer(join(test_files, '\n')),
+            stdin=IOBuffer(join(testfiles, '\n')),
         ),
     )
 end
@@ -173,14 +173,7 @@ function pick_testblock(
 )
     if !interactive
         # Non-interactive mode: use fzf --filter to get matching test blocks
-        args = [
-            "--filter",
-            testset_query,
-            "-d",
-            "$(separator())",
-            "--nth",
-            "1",
-        ]
+        args = ["--filter", testset_query, "-d", "$(separator())", "--nth", "1"]
         cmd = Cmd(`$(fzf()) $(args)`; ignorestatus=true, dir=root)
         return readlines(pipeline(cmd; stdin=IOBuffer(join(keys(tabled_keys), '\n'))))
     end
@@ -221,7 +214,7 @@ function testblock_list(
     info_to_syntax::Dict{TestBlockInfo,SyntaxBlock},
     display_to_info::Dict{String,TestBlockInfo},
     pkg::PackageSpec,
-)
+)::Vector{EvalTest}
     map(choices) do choice
         blockinfo = display_to_info[choice]
         syntax_block = info_to_syntax[blockinfo]
@@ -270,8 +263,9 @@ function fzf_testblock_from_files(
         tests = testblock_list(choices, info_to_syntax, display_to_info, pkg)
         clean_results_file(pkg)
         LATEST_EVAL[] = tests
-        for test in tests
-            eval_in_module(test, pkg)
+        map(tests) do test
+            result = eval_in_module(test, pkg)
+            EvalResult(isnothing(result), test.info, result)
         end
     end
 end
@@ -295,8 +289,10 @@ function fzf_testblock(
     interactive::Bool=true,
 )
     pkg = current_pkg()
-    root, test_files = get_test_files(pkg)
+    root, testfiles = get_testfiles(pkg)
     # We fetch all valid test files.
-    matched_files = get_matching_files(fuzzy_file, test_files)
-    fzf_testblock_from_files(interfaces, matched_files, fuzzy_testset, pkg, root; interactive)
+    matched_files = get_matching_files(fuzzy_file, testfiles)
+    return fzf_testblock_from_files(
+        interfaces, matched_files, fuzzy_testset, pkg, root; interactive
+    )
 end

@@ -69,7 +69,7 @@ function REPL.complete_line(::TestModeCompletionProvider, s::LineEdit.PromptStat
     # Try to get test files - if it fails, return empty completions
     try
         pkg = current_pkg()
-        _, files = get_test_files(pkg)
+        _, files = get_testfiles(pkg)
 
         # Extract just the base file names (without path, but keep .jl extension)
         file_names = unique([basename(f) for f in files])

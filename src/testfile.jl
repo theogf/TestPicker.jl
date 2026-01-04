@@ -1,5 +1,5 @@
 """
-    select_test_files(query::AbstractString, pkg::PackageSpec=current_pkg(); interactive::Bool=true) -> (Symbol, String, Vector{String})
+    select_testfiles(query::AbstractString, pkg::PackageSpec=current_pkg(); interactive::Bool=true) -> (Symbol, String, Vector{String})
 
 Select test files using fzf based on a fuzzy search query.
 
@@ -13,8 +13,10 @@ Returns a tuple of (mode, root, files) where:
 - root is the test directory path
 - files are relative paths (not joined with root yet)
 """
-function select_test_files(query::AbstractString, pkg::PackageSpec=current_pkg(); interactive::Bool=true)
-    root, files = get_test_files(pkg)
+function select_testfiles(
+    query::AbstractString, pkg::PackageSpec=current_pkg(); interactive::Bool=true
+)
+    root, files = get_testfiles(pkg)
 
     if !interactive
         # Non-interactive mode: use fzf --filter to get matching files
@@ -73,14 +75,14 @@ function select_test_files(query::AbstractString, pkg::PackageSpec=current_pkg()
 end
 
 """
-    get_test_files(pkg::PackageSpec=current_pkg()) -> (String, Vector{String})
+    get_testfiles(pkg::PackageSpec=current_pkg()) -> (String, Vector{String})
 
 Discover and return all Julia test files for a package.
 
 Recursively searches the package's test directory to find all `.jl` files,
 returning both the test directory path and the collection of relative file paths.
 """
-function get_test_files(pkg::PackageSpec=current_pkg())
+function get_testfiles(pkg::PackageSpec=current_pkg())
     test_dir = get_test_dir_from_pkg(pkg)
     # Recursively get a list of julia files.
     return test_dir,
@@ -112,7 +114,7 @@ test files based on the query.
 """
 function fzf_testfile(query::AbstractString; interactive::Bool=true)
     pkg = current_pkg()
-    mode, root, files = select_test_files(query, pkg; interactive)
+    mode, root, files = select_testfiles(query, pkg; interactive)
 
     if mode == :testblock
         # User pressed ctrl-b, switch to testblock mode (only possible in interactive mode)
@@ -122,43 +124,64 @@ function fzf_testfile(query::AbstractString; interactive::Bool=true)
         # Normal file execution mode
         # Convert relative paths to absolute paths for file execution
         absolute_files = joinpath.(Ref(root), files)
-        return run_test_files(absolute_files, pkg)
+        return run_testfiles(absolute_files, pkg)
     end
 end
 
 """
-    run_test_files(files::AbstractVector{<:AbstractString}, pkg::PackageSpec) -> Nothing
+File to evaluate was empty.
+"""
+struct EmptyFile end
+
+"""
+Provided file could not be found.
+"""
+struct MissingFileException <: Exception
+    file::String
+end
+
+function Base.showerror(io::IO, (; file)::MissingFileException)
+    return println(
+        io,
+        "File $(file) could not be found, this sounds like a bug, please report it on https://github.com/theogf/TestPicker.jl/issues/new.",
+    )
+end
+
+"""
+    run_testfiles(files::AbstractVector{<:AbstractString}, pkg::PackageSpec) -> Nothing
 
 Execute a collection of test files in the package test environment.
 
 Runs each provided test file in sequence, handling errors gracefully and updating
 the test evaluation state. Each file is wrapped in a testset and executed in isolation.
 """
-function run_test_files(files::AbstractVector{<:AbstractString}, pkg::PackageSpec)
+function run_testfiles(files::AbstractVector{<:AbstractString}, pkg::PackageSpec)
     # We return early to not empty the LATEST_EVAL
     isempty(files) && return nothing
     # Reset the latest eval data.
     LATEST_EVAL[] = EvalTest[]
     clean_results_file(pkg)
-    for file in files
+    map(files) do file
         if isempty(file)
+            EmptyFile()
         elseif !isfile(file)
             @error "File $(file) could not be found, this sounds like a bug, please report it on https://github.com/theogf/TestPicker.jl/issues/new."
+            MissingFileException(file)
         else
-            run_test_file(file, pkg)
+            run_testfile(file, pkg)
         end
     end
 end
 
 """
-    run_test_file(file::AbstractString, pkg::PackageSpec) -> Any
+    run_testfile(file::AbstractString, pkg::PackageSpec) -> Any
 
 Execute a single test file in an isolated testset within the package test environment.
 
 Wraps the test file in a testset named after the package and file, handles test
 failures gracefully, and updates the global test state for later inspection.
 """
-function run_test_file(file::AbstractString, pkg::PackageSpec)
+function run_testfile(file::AbstractString, pkg::PackageSpec)
     testset_name = "$(pkg.name) - $(file)"
     test_info = TestInfo(file, "", 0)
     ex = quote
@@ -179,5 +202,7 @@ function run_test_file(file::AbstractString, pkg::PackageSpec)
     else
         LATEST_EVAL[] = [test]
     end
-    return eval_in_module(test, pkg)
+    result = eval_in_module(test, pkg)
+    # result is nothing when the testset is a success.
+    return EvalResult(isnothing(result), test_info, result)
 end
