@@ -47,6 +47,10 @@ struct EvalTest
     info::TestInfo
 end
 
+struct RunResult
+    files_run::Vector{TestInfo}
+end
+
 """
     LATEST_EVAL
 
