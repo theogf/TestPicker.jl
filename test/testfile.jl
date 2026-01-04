@@ -1,7 +1,7 @@
 using Test
 using Pkg.Types: PackageSpec
 using TestPicker
-using TestPicker: EvalTest, get_testfiles, run_testfile, select_testfiles
+using TestPicker: EvalTest, EvalResult, fzf_testfile, get_testfiles, run_testfile, select_testfiles
 
 @testset "Get test files" begin
     path = pkgdir(TestPicker)
@@ -55,4 +55,17 @@ end
     @test root == joinpath(path, "test")
     @test length(files) >= 3  # At least test-a, test-b, and weird-name
     @test any(startswith("sandbox/"), files)
+end
+
+@testset "fzf_testfile return type" begin
+    path = pkgdir(TestPicker)
+
+    # Test that fzf_testfile returns a vector when files match
+    result = fzf_testfile("test-a"; interactive=false)
+    @test result isa Vector
+    @test all(r -> r isa EvalResult, result)
+
+    # Test that fzf_testfile returns nothing when no files match
+    result = fzf_testfile("nonexistent-xyz"; interactive=false)
+    @test isnothing(result)
 end

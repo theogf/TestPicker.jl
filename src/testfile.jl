@@ -168,8 +168,7 @@ function run_testfiles(files::AbstractVector{<:AbstractString}, pkg::PackageSpec
             @error "File $(file) could not be found, this sounds like a bug, please report it on https://github.com/theogf/TestPicker.jl/issues/new."
             MissingFileException(file)
         else
-            res = run_testfile(file, pkg)
-            EvaluatedFile(file, isnothing(res), res)
+            run_testfile(file, pkg)
         end
     end
 end

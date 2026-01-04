@@ -1,14 +1,15 @@
 using Test
 using JuliaSyntax
 using TestPicker
-using TestPicker: TestBlockInfo, StdTestset, SyntaxBlock
+using TestPicker: TestBlockInfo, StdTestset, SyntaxBlock, EvalResult
 using TestPicker:
     get_testblocks,
     get_testfiles,
     get_matching_files,
     build_info_to_syntax,
     pick_testblock,
-    istestblock
+    istestblock,
+    fzf_testblock
 
 function no_indentation(s::AbstractString)
     return replace(s, r"^\s+"m => "")
@@ -136,4 +137,13 @@ end
     # Should match only "Second level" testset
     choices = pick_testblock(tabled_keys_c, "Second", root_subdir; interactive=false)
     @test length(choices) == 1
+end
+
+@testset "fzf_testblock return type" begin
+    interfaces = [StdTestset()]
+
+    # Test that fzf_testblock returns a vector when testblocks match
+    result = fzf_testblock(interfaces, "test-a", "testset"; interactive=false)
+    @test result isa Vector
+    @test all(r -> r isa EvalResult, result)
 end
