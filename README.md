@@ -16,6 +16,7 @@
 </div>
 
 Simple fuzzy test picker to run a unique test file or test block from the REPL instead of the whole testsuite.
+For a [MCP](https://modelcontextprotocol.io/docs/getting-started/intro) server around TestPicker, check out [TestPickerMCPServer.jl](https://github.com/theogf/TestPickerMCPServer.jl).
 
 ## Explanation
 
