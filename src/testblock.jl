@@ -173,14 +173,7 @@ function pick_testblock(
 )
     if !interactive
         # Non-interactive mode: use fzf --filter to get matching test blocks
-        args = [
-            "--filter",
-            testset_query,
-            "-d",
-            "$(separator())",
-            "--nth",
-            "1",
-        ]
+        args = ["--filter", testset_query, "-d", "$(separator())", "--nth", "1"]
         cmd = Cmd(`$(fzf()) $(args)`; ignorestatus=true, dir=root)
         return readlines(pipeline(cmd; stdin=IOBuffer(join(keys(tabled_keys), '\n'))))
     end
@@ -295,8 +288,10 @@ function fzf_testblock(
     interactive::Bool=true,
 )
     pkg = current_pkg()
-    root, test_files = get_test_files(pkg)
+    root, test_files = get_testfiles(pkg)
     # We fetch all valid test files.
     matched_files = get_matching_files(fuzzy_file, test_files)
-    fzf_testblock_from_files(interfaces, matched_files, fuzzy_testset, pkg, root; interactive)
+    return fzf_testblock_from_files(
+        interfaces, matched_files, fuzzy_testset, pkg, root; interactive
+    )
 end

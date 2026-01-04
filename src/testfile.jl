@@ -1,5 +1,5 @@
 """
-    select_test_files(query::AbstractString, pkg::PackageSpec=current_pkg(); interactive::Bool=true) -> (Symbol, String, Vector{String})
+    select_testfiles(query::AbstractString, pkg::PackageSpec=current_pkg(); interactive::Bool=true) -> (Symbol, String, Vector{String})
 
 Select test files using fzf based on a fuzzy search query.
 
@@ -16,7 +16,7 @@ Returns a tuple of (mode, root, files) where:
 function select_testfiles(
     query::AbstractString, pkg::PackageSpec=current_pkg(); interactive::Bool=true
 )
-    root, files = get_test_files(pkg)
+    root, files = get_testfiles(pkg)
 
     if !interactive
         # Non-interactive mode: use fzf --filter to get matching files
@@ -82,7 +82,7 @@ Discover and return all Julia test files for a package.
 Recursively searches the package's test directory to find all `.jl` files,
 returning both the test directory path and the collection of relative file paths.
 """
-function get_test_files(pkg::PackageSpec=current_pkg())
+function get_testfiles(pkg::PackageSpec=current_pkg())
     test_dir = get_test_dir_from_pkg(pkg)
     # Recursively get a list of julia files.
     return test_dir,

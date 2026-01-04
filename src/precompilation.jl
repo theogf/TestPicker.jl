@@ -6,7 +6,7 @@
 
         # Test file operations
         try
-            root, test_files = get_test_files(pkg_spec)
+            root, test_files = get_testfiles(pkg_spec)
 
             # Test block operations
             interface = StdTestset()
@@ -51,8 +51,7 @@
 
             # Construct pipeline object without executing
             test_pipeline = pipeline(
-                Cmd(fzf_cmd; ignorestatus=true, dir=root);
-                stdin=IOBuffer("test\n")
+                Cmd(fzf_cmd; ignorestatus=true, dir=root); stdin=IOBuffer("test\n")
             )
 
             # Precompile bat path construction
