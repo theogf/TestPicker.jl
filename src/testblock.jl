@@ -75,7 +75,7 @@ function get_testblocks!(
 end
 
 """
-    get_matching_files(file_query::AbstractString, test_files::AbstractVector{<:AbstractString}) -> Vector{String}
+    get_matching_files(file_query::AbstractString, testfiles::AbstractVector{<:AbstractString}) -> Vector{String}
 
 Filter test files using fzf's non-interactive filtering based on the given query.
 
@@ -83,12 +83,12 @@ Uses `fzf --filter` to perform fuzzy matching on the provided list of test files
 returning only those that match the query pattern.
 """
 function get_matching_files(
-    file_query::AbstractString, test_files::AbstractVector{<:AbstractString}
+    file_query::AbstractString, testfiles::AbstractVector{<:AbstractString}
 )
     return readlines(
         pipeline(
             Cmd(`$(fzf()) --filter $(file_query)`; ignorestatus=true);
-            stdin=IOBuffer(join(test_files, '\n')),
+            stdin=IOBuffer(join(testfiles, '\n')),
         ),
     )
 end
@@ -288,9 +288,9 @@ function fzf_testblock(
     interactive::Bool=true,
 )
     pkg = current_pkg()
-    root, test_files = get_testfiles(pkg)
+    root, testfiles = get_testfiles(pkg)
     # We fetch all valid test files.
-    matched_files = get_matching_files(fuzzy_file, test_files)
+    matched_files = get_matching_files(fuzzy_file, testfiles)
     return fzf_testblock_from_files(
         interfaces, matched_files, fuzzy_testset, pkg, root; interactive
     )

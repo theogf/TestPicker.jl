@@ -75,7 +75,7 @@ function select_testfiles(
 end
 
 """
-    get_test_files(pkg::PackageSpec=current_pkg()) -> (String, Vector{String})
+    get_testfiles(pkg::PackageSpec=current_pkg()) -> (String, Vector{String})
 
 Discover and return all Julia test files for a package.
 

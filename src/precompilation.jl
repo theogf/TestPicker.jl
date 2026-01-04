@@ -6,7 +6,7 @@
 
         # Test file operations
         try
-            root, test_files = get_testfiles(pkg_spec)
+            root, testfiles = get_testfiles(pkg_spec)
 
             # Test block operations
             interface = StdTestset()
@@ -24,19 +24,19 @@
             end
 
             # Get testblocks from a test file
-            if !isempty(test_files)
-                test_file = joinpath(root, first(test_files))
-                if isfile(test_file)
-                    get_testblocks([interface], test_file)
+            if !isempty(testfiles)
+                testfile = joinpath(root, first(testfiles))
+                if isfile(testfile)
+                    get_testblocks([interface], testfile)
                 end
             end
 
             # File matching operations
-            get_matching_files("test", test_files)
+            get_matching_files("test", testfiles)
 
             # Build info to syntax
-            if !isempty(test_files)
-                matched_files = [first(test_files)]
+            if !isempty(testfiles)
+                matched_files = [first(testfiles)]
                 build_info_to_syntax([interface], root, matched_files)
             end
 

@@ -4,7 +4,7 @@ using TestPicker
 using TestPicker: TestBlockInfo, StdTestset, SyntaxBlock
 using TestPicker:
     get_testblocks,
-    get_test_files,
+    get_testfiles,
     get_matching_files,
     build_info_to_syntax,
     pick_testblock,
