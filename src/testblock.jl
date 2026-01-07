@@ -37,6 +37,33 @@ struct SyntaxBlock
 end
 
 """
+    TestBlockInfo
+
+Metadata container for a test block, including its location and identification information.
+
+Stores essential information about a test block's location within a file and provides
+a label for identification and display purposes.
+"""
+struct TestBlockInfo
+    label::String
+    file_name::String
+    line_start::Int
+    line_end::Int
+end
+
+label(info::TestBlockInfo) = info.label
+file_name(info::TestBlockInfo) = info.file_name
+
+function TestBlockInfo(block::SyntaxBlock, file::AbstractString)
+    (; testblock, interface) = block
+    label = blocklabel(interface, testblock)
+    line_start, _ = JuliaSyntax.source_location(testblock.source, testblock.position)
+    block_length = countlines(IOBuffer(JuliaSyntax.sourcetext(testblock)))
+    line_end = line_start + block_length - 1
+    return TestBlockInfo(label, file, line_start, line_end)
+end
+
+"""
     get_testblocks(interfaces::Vector{<:TestBlockInterface}, file::AbstractString) -> Vector{SyntaxBlock}
 
 Parse a Julia file and extract all test blocks with their associated preamble statements.
@@ -48,14 +75,14 @@ to determine what constitutes a test block.
 function get_testblocks(interfaces::Vector{<:TestBlockInterface}, file::AbstractString)
     root = parseall(SyntaxNode, read(file, String); filename=file)
     return mapreduce(vcat, interfaces) do interface
-        testblocks = Vector{SyntaxBlock}()
-        get_testblocks!(interface, testblocks, root)
-        testblocks
+        syntax_blocks = Vector{SyntaxBlock}()
+        get_testblocks!(interface, syntax_blocks, root)
+        syntax_blocks
     end
 end
 function get_testblocks!(
     interface::TestBlockInterface,
-    testblocks::Vector{SyntaxBlock},
+    syntax_blocks::Vector{SyntaxBlock},
     node::SyntaxNode,
     preamble::Vector{SyntaxNode}=SyntaxNode[],
 )
@@ -63,10 +90,10 @@ function get_testblocks!(
     isnothing(nodes) && return nothing
     for node in nodes
         if istestblock(interface, node)
-            push!(testblocks, SyntaxBlock(copy(preamble), node, interface))
-            get_testblocks!(interface, testblocks, node, copy(preamble))
+            push!(syntax_blocks, SyntaxBlock(copy(preamble), node, interface))
+            get_testblocks!(interface, syntax_blocks, node, copy(preamble))
         else
-            get_testblocks!(interface, testblocks, node, copy(preamble))
+            get_testblocks!(interface, syntax_blocks, node, copy(preamble))
             if ispreamble(node)
                 push!(preamble, node)
             end
@@ -94,24 +121,6 @@ function get_matching_files(
 end
 
 """
-    TestBlockInfo
-
-Metadata container for a test block, including its location and identification information.
-
-Stores essential information about a test block's location within a file and provides
-a label for identification and display purposes.
-"""
-struct TestBlockInfo
-    label::String
-    file_name::String
-    line_start::Int
-    line_end::Int
-end
-
-label(info::TestBlockInfo) = info.label
-file_name(info::TestBlockInfo) = info.file_name
-
-"""
     build_info_to_syntax(interfaces, root, matched_files) -> (Dict{TestBlockInfo,SyntaxBlock}, Dict{String,TestBlockInfo})
 
 Parse matched files and build mapping structures for test block selection and display.
@@ -130,14 +139,7 @@ function build_info_to_syntax(
         syntax_blocks = get_testblocks(interfaces, joinpath(root, file))
         Dict(
             map(syntax_blocks) do syntax_block
-                (; testblock, interface) = syntax_block
-                label = blocklabel(interface, testblock)
-                line_start, _ = JuliaSyntax.source_location(
-                    testblock.source, testblock.position
-                )
-                block_length = countlines(IOBuffer(JuliaSyntax.sourcetext(testblock)))
-                line_end = line_start + block_length - 1
-                TestBlockInfo(label, file, line_start, line_end) => syntax_block
+                TestBlockInfo(syntax_block, file) => syntax_block
             end,
         )
     end
