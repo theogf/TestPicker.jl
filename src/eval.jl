@@ -76,7 +76,7 @@ function eval_in_module((; ex, info)::EvalTest, pkg::PackageSpec)
 
     module_expr = Expr(:module, true, mod, test_content)
 
-    top_ex = Expr(:toplevel, testenv_expr, module_expr, :nothing)
+    top_ex = Expr(:toplevel, testenv_expr, module_expr)
 
     env_return = quote
         Pkg.activate($(pkg.path); io=devnull)
@@ -107,14 +107,20 @@ function eval_in_module((; ex, info)::EvalTest, pkg::PackageSpec)
         @info "Executing test file $(filename)"
     end
     @debug "Evaluating code block" top_ex
+    result = nothing
     try
         # cd acts such that also evaled expressions in `Main` are affected.
         cd(dir) do
             Core.eval(Main, revise_ex)
             Core.eval(Main, top_ex)
         end
+    catch e
+        e isa TestSetException || rethrow()
+        save_test_results(e, info, pkg)
+        result = e
     finally
         Core.eval(Main, env_return)
         Core.eval(Main, clean_module)
     end
+    return result
 end
