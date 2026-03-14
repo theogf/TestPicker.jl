@@ -17,4 +17,20 @@ using TestPicker: TestPicker, eval_in_module, current_pkg, EvalTest, TestInfo
             EvalTest(:(@testset "foo" begin end), TestInfo("eval.jl", "foo", 10)), pkg_spec
         ),
     )
+    # Failing tests return a TestSetException rather than throwing.
+    # Run in a spawned task to avoid nesting inside the current testset context,
+    # which mirrors how eval_in_module is used from the REPL.
+    result = fetch(
+        Threads.@spawn eval_in_module(
+            EvalTest(
+                :(@testset "failing" begin
+                    @test false
+                end),
+                TestInfo("eval.jl", "failing", 20),
+            ),
+            pkg_spec,
+        )
+    )
+    @test result isa Test.TestSetException
+    @test result.fail == 1
 end
