@@ -133,10 +133,15 @@ end
 function truncate_backtrace(backtrace_str::AbstractString)
     lines = split(remove_ansi(backtrace_str), '\n')
     start_idx = findfirst(x -> !isnothing(match(r"^\s*\[\d+\]", x)), lines)
-    isnothing(start_idx) && return backtrace_str
+    isnothing(start_idx) && return join(lines, '\n')
     header = lines[1:(start_idx - 1)]
     frame_lines = lines[start_idx:end]
     frames = collect(Iterators.partition(frame_lines, 2))
+    # Two heuristics mark the boundary between user code and TestPicker's machinery:
+    # 1. `include(mod::Module, _path::String)` — Base's file loader, called by TestPicker
+    #    to load the user's test file into the evaluation module.
+    # 2. `top-level scope` at a TestPicker src path — the top-level expression that
+    #    TestPicker evaluates when running a test block (e.g. via testblock.jl).
     is_cutoff(frame) =
         contains(first(frame), "include(mod::Module, _path::String)") ||
         (contains(first(frame), "top-level scope") && any(contains(l, "TestPicker/src/") for l in frame))
@@ -148,7 +153,6 @@ end
 
 "We connect the error with the backtrace to be previewed."
 function preview_content(test::Test.Error)
-    # Main.@infiltrate
     return join((test.value, truncate_backtrace(string(test.backtrace))), '\n')
 end
 
