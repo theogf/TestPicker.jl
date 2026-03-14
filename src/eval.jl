@@ -37,15 +37,18 @@ function prepend_ex(ex, new_line::Expr)
 end
 
 """
-    eval_in_module(eval_test::EvalTest, pkg::PackageSpec) -> Nothing
+    eval_in_module(eval_test::EvalTest, pkg::PackageSpec) -> Union{Nothing,TestSetException}
 
 Execute a test block in an isolated module with the appropriate test environment activated.
 
 This function provides the core test execution functionality for TestPicker. It creates
 a temporary module, activates the package's test environment, and evaluates the test
 code in isolation to prevent interference between different test runs.
+
+Returns `nothing` when all tests pass successfully, or a [`TestSetException`](@ref)
+when test failures are encountered.
 """
-function eval_in_module((; ex, info)::EvalTest, pkg::PackageSpec)
+function eval_in_module((; ex, info)::EvalTest, pkg::PackageSpec)::Union{Nothing,TestSetException}
     (; filename, label, line) = info
     mod = gensym(pkg.name)
     revise_ex = quote
