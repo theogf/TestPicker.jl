@@ -185,15 +185,8 @@ function run_testfile(file::AbstractString, pkg::PackageSpec)
     testset_name = "$(pkg.name) - $(file)"
     test_info = TestInfo(file, "", 0)
     ex = quote
-        using TestPicker: TestPicker
-        try
-            @testset $testset_name begin
-                include($file)
-            end
-        catch e
-            !(e isa TestSetException) && rethrow()
-            TestPicker.save_test_results(e, $(test_info), $(pkg))
-            e
+        @testset $testset_name begin
+            include($file)
         end
     end
     test = EvalTest(ex, test_info)
