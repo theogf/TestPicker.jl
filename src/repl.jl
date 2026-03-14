@@ -130,8 +130,8 @@ function create_repl_test_mode(repl::AbstractREPL, main::LineEdit.Prompt)
     _, skeymap = LineEdit.setup_search_keymap(hp)
     _, prefix_keymap = LineEdit.setup_prefix_keymap(hp, test_mode)
 
-    # Check if the expression is incomplete, and, if so, request for another line.
-    test_mode.on_enter = REPL.return_callback
+    # Always submit on enter — test mode input is not Julia syntax.
+    test_mode.on_enter = (s) -> true
     # We want to support all the default keymap prefixes.
     mk = REPL.mode_keymap(main)
 

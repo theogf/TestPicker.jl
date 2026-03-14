@@ -15,3 +15,6 @@ end
 @safetestset "repl" begin
     include("repl.jl")
 end
+@safetestset "results_viewer" begin
+    include("results_viewer.jl")
+end
