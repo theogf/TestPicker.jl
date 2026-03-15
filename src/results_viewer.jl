@@ -144,7 +144,7 @@ function truncate_backtrace(backtrace_str::AbstractString)
     #    TestPicker evaluates when running a test block (e.g. via testblock.jl).
     is_cutoff(frame) =
         contains(first(frame), "include(mod::Module, _path::String)") ||
-        (contains(first(frame), "top-level scope") && any(contains(l, "TestPicker/src/") for l in frame))
+        (contains(first(frame), "top-level scope") && any(occursin(r"TestPicker[/\\]src[/\\]", l) for l in frame))
     cutoff_idx = findfirst(is_cutoff, frames)
     isnothing(cutoff_idx) && return join(vcat(header, frame_lines), '\n')
     kept_frames = frames[1:(cutoff_idx - 1)]
