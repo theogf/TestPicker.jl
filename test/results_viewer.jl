@@ -44,6 +44,26 @@ Stacktrace:
     @test !contains(result, "eval_in_module")
 end
 
+@testset "truncate_backtrace - top-level scope in TestPicker src (Windows path)" begin
+    fake_bt = """
+Stacktrace:
+ [1] user_func()
+    @ UserModule /home/user/project/src/foo.jl:10
+ [2] another_user_func()
+    @ UserModule /home/user/project/src/bar.jl:20
+ [3] top-level scope
+    @ C:\\Users\\user\\.julia\\dev\\TestPicker\\src\\testblock.jl:229
+ [4] eval_in_module(::TestPicker.EvalTest)
+    @ TestPicker C:\\Users\\user\\.julia\\dev\\TestPicker\\src\\eval.jl:112"""
+
+    result = TestPicker.truncate_backtrace(fake_bt)
+
+    @test contains(result, "user_func")
+    @test contains(result, "another_user_func")
+    @test !contains(result, "top-level scope")
+    @test !contains(result, "eval_in_module")
+end
+
 @testset "truncate_backtrace - no include boundary" begin
     fake_bt = """
 Stacktrace:
