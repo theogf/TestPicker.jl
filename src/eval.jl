@@ -48,7 +48,9 @@ code in isolation to prevent interference between different test runs.
 Returns `nothing` when all tests pass successfully, or a [`TestSetException`](@ref)
 when test failures are encountered.
 """
-function eval_in_module((; ex, info)::EvalTest, pkg::PackageSpec)::Union{Nothing,TestSetException}
+function eval_in_module(
+    (; ex, info)::EvalTest, pkg::PackageSpec
+)::Union{Nothing,TestSetException}
     (; filename, label, line) = info
     mod = gensym(pkg.name)
     revise_ex = quote
@@ -92,7 +94,7 @@ function eval_in_module((; ex, info)::EvalTest, pkg::PackageSpec)::Union{Nothing
                 if !isconst($mod, name)
                     setproperty!($mod, name, nothing)
                 end
-            catch
+            catch e
                 if isa(e, UndefVarError)
                     continue
                 else
