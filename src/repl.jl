@@ -127,7 +127,6 @@ function create_repl_test_mode(repl::AbstractREPL, main::LineEdit.Prompt)
     hp.mode_mapping[:test] = test_mode
     test_mode.hist = hp
 
-    _, skeymap = LineEdit.setup_search_keymap(hp)
     _, prefix_keymap = LineEdit.setup_prefix_keymap(hp, test_mode)
 
     # Always submit on enter — test mode input is not Julia syntax.
@@ -136,13 +135,19 @@ function create_repl_test_mode(repl::AbstractREPL, main::LineEdit.Prompt)
     mk = REPL.mode_keymap(main)
 
     test_mode_keymaps = Dict{Any,Any}[
-        skeymap,
         mk,
         prefix_keymap,
         LineEdit.history_keymap,
         LineEdit.default_keymap,
         LineEdit.escape_defaults,
     ]
+
+    # `setup_search_keymap` was removed in Julia 1.13; the ^R/^S history search
+    # it provided is now built into `LineEdit.history_keymap` above.
+    if isdefined(LineEdit, :setup_search_keymap)
+        _, skeymap = LineEdit.setup_search_keymap(hp)
+        pushfirst!(test_mode_keymaps, skeymap)
+    end
 
     test_mode.keymap_dict = LineEdit.keymap(test_mode_keymaps)
 
