@@ -37,11 +37,11 @@ struct SyntaxBlock
 end
 
 """
-    get_testblocks(interfaces::Vector{<:TestBlockInterface}, file::AbstractString) -> Vector{SyntaxBlock}
+    get_syntax_blocks(interfaces::Vector{<:TestBlockInterface}, file::AbstractString) -> Vector{SyntaxBlock}
 
 Parse a Julia file and extract all test blocks with their associated preamble statements.
 
-For each test block found (including nested ones), collects all preceding preamble 
+For each test block found (including nested ones), collects all preceding preamble
 statements that should be executed before the test block. Uses the provided interfaces
 to determine what constitutes a test block.
 
@@ -52,17 +52,17 @@ to determine what constitutes a test block.
 # Returns
 - `Vector{SyntaxBlock}`: Collection of parsed test blocks with their preambles
 """
-function get_testblocks(interfaces::Vector{<:TestBlockInterface}, file::AbstractString)
+function get_syntax_blocks(interfaces::Vector{<:TestBlockInterface}, file::AbstractString)
     root = parseall(SyntaxNode, read(file, String); filename=file)
     return mapreduce(vcat, interfaces) do interface
-        testblocks = Vector{SyntaxBlock}()
-        get_testblocks!(interface, testblocks, root)
-        testblocks
+        syntax_blocks = Vector{SyntaxBlock}()
+        get_syntax_blocks!(interface, syntax_blocks, root)
+        syntax_blocks
     end
 end
-function get_testblocks!(
+function get_syntax_blocks!(
     interface::TestBlockInterface,
-    testblocks::Vector{SyntaxBlock},
+    syntax_blocks::Vector{SyntaxBlock},
     node::SyntaxNode,
     preamble::Vector{SyntaxNode}=SyntaxNode[],
 )
@@ -70,10 +70,10 @@ function get_testblocks!(
     isnothing(nodes) && return nothing
     for node in nodes
         if istestblock(interface, node)
-            push!(testblocks, SyntaxBlock(copy(preamble), node, interface))
-            get_testblocks!(interface, testblocks, node, copy(preamble))
+            push!(syntax_blocks, SyntaxBlock(copy(preamble), node, interface))
+            get_syntax_blocks!(interface, syntax_blocks, node, copy(preamble))
         else
-            get_testblocks!(interface, testblocks, node, copy(preamble))
+            get_syntax_blocks!(interface, syntax_blocks, node, copy(preamble))
             if ispreamble(node)
                 push!(preamble, node)
             end
@@ -129,7 +129,7 @@ function build_info_to_syntax(
 )
     info_to_syntax = mapreduce(merge, matched_files) do file
         # Keep track of file name length for padding.
-        syntax_blocks = get_testblocks(interfaces, joinpath(root, file))
+        syntax_blocks = get_syntax_blocks(interfaces, joinpath(root, file))
         Dict(
             map(syntax_blocks) do syntax_block
                 TestBlockInfo(syntax_block, file) => syntax_block

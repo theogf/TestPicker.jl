@@ -23,11 +23,11 @@
                 blocklabel(interface, test_node)
             end
 
-            # Get testblocks from a test file
+            # Get syntax_blocks from a test file
             if !isempty(testfiles)
                 testfile = joinpath(root, first(testfiles))
                 if isfile(testfile)
-                    get_testblocks([interface], testfile)
+                    get_syntax_blocks([interface], testfile)
                 end
             end
 
