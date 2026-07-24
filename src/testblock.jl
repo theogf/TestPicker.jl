@@ -36,6 +36,15 @@ struct SyntaxBlock
     interface::TestBlockInterface
 end
 
+function TestBlockInfo(block::SyntaxBlock, file::AbstractString)
+    (; testblock, interface) = block
+    label = blocklabel(interface, testblock)
+    line_start, _ = JuliaSyntax.source_location(testblock.source, testblock.position)
+    block_length = countlines(IOBuffer(JuliaSyntax.sourcetext(testblock)))
+    line_end = line_start + block_length - 1
+    return TestBlockInfo(label, file, line_start, line_end)
+end
+
 """
     get_syntax_blocks(interfaces::Vector{<:TestBlockInterface}, file::AbstractString) -> Vector{SyntaxBlock}
 

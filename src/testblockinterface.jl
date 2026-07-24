@@ -22,15 +22,6 @@ end
 label(info::TestBlockInfo) = info.label
 file_name(info::TestBlockInfo) = info.file_name
 
-function TestBlockInfo(block::SyntaxBlock, file::AbstractString)
-    (; testblock, interface) = block
-    label = blocklabel(interface, testblock)
-    line_start, _ = JuliaSyntax.source_location(testblock.source, testblock.position)
-    block_length = countlines(IOBuffer(JuliaSyntax.sourcetext(testblock)))
-    line_end = line_start + block_length - 1
-    return TestBlockInfo(label, file, line_start, line_end)
-end
-
 """
     TestBlockInterface
 
