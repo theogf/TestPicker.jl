@@ -55,7 +55,7 @@ end
     interfaces = [StdTestset()]
     full_map, tabled_keys = build_info_to_syntax(interfaces, root, [file])
     @test length(full_map) == length(tabled_keys)
-    @test only(keys(full_map)) == TestBlockInfo("\"I am a testset\"", file, 3, 7)
+    @test only(keys(full_map)) == TestBlockInfo("I am a testset", file, 3, 7)
     syntax_block = only(values(full_map))
     @test syntax_block isa SyntaxBlock
     string_version = string(Base.remove_linenums!(Expr(syntax_block.testblock)))
@@ -68,7 +68,7 @@ end
     file = "test-b.jl"
     full_map, tabled_keys = build_info_to_syntax(interfaces, root, [file])
     testinfo = only(keys(full_map))
-    @test testinfo == TestBlockInfo("\"Challenge for JuliaSyntax\"", file, 1, 6)
+    @test testinfo == TestBlockInfo("Challenge for JuliaSyntax", file, 1, 6)
 end
 
 @testset "Nested testsets fetching" begin
