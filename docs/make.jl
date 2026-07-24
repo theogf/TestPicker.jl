@@ -12,7 +12,7 @@ makedocs(;
         edit_link="main",
         assets=String[],
     ),
-    pages=["Home" => "index.md"],
+    pages=["Home" => "index.md", "Writing a TestBlockInterface" => "interfaces.md"],
 )
 
 deploydocs(; repo="github.com/theogf/TestPicker.jl", devbranch="main")
