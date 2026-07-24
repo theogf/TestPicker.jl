@@ -170,6 +170,16 @@ function preamble(::StdTestset)
     return :(using Test)
 end
 
+"""
+    TestItemInterface <: TestBlockInterface
+
+Implementation of [`TestBlockInterface`](@ref) for `@testitem` blocks from
+[`TestItems.jl`](https://github.com/julia-vscode/TestItems.jl).
+
+Register it with [`add_testitem_interface!`](@ref) to let `TestPicker` find and run
+`@testitem` blocks alongside standard `@testset`s. See the "Writing a `TestBlockInterface`"
+page in the manual for a walk-through of its implementation.
+"""
 struct TestItemInterface <: TestBlockInterface end
 
 function istestblock(::TestItemInterface, node::SyntaxNode)
