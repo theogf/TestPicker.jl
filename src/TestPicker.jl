@@ -110,6 +110,14 @@ Similar to `add_interface!` but empty the interface first before adding the new 
 """
 replace_interface!(interface::TestBlockInterface) = push!(empty!(INTERFACES), interface)
 
+"""
+    add_testitem_interface!() -> Vector{TestBlockInterface}
+
+Register [`TestItemInterface`](@ref) with TestPicker so that `@testitem` blocks are
+recognized alongside standard `@testset`s.
+
+Shorthand for `add_interface!(TestItemInterface())`.
+"""
 add_testitem_interface!() = add_interface!(TestItemInterface())
 
 function __init__()
