@@ -129,7 +129,8 @@ end
         @test preamble(interface) === nothing
         
         test_expr = :(x = 5)
-        @test expr_transform(interface, test_expr) == test_expr
+        info = TestBlockInfo("minimal_test_block", "file.jl", 1, 1)
+        @test expr_transform(interface, test_expr, info, ".") == test_expr
     end
     
     @testset "prepend_preamble_statements function" begin

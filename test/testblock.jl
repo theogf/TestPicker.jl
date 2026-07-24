@@ -3,7 +3,7 @@ using JuliaSyntax
 using TestPicker
 using TestPicker: TestBlockInfo, StdTestset, SyntaxBlock, EvalResult
 using TestPicker:
-    get_testblocks,
+    get_syntax_blocks,
     get_testfiles,
     get_matching_files,
     build_info_to_syntax,
@@ -55,7 +55,7 @@ end
     interfaces = [StdTestset()]
     full_map, tabled_keys = build_info_to_syntax(interfaces, root, [file])
     @test length(full_map) == length(tabled_keys)
-    @test only(keys(full_map)) == TestBlockInfo("\"I am a testset\"", file, 3, 7)
+    @test only(keys(full_map)) == TestBlockInfo("I am a testset", file, 3, 7)
     syntax_block = only(values(full_map))
     @test syntax_block isa SyntaxBlock
     string_version = string(Base.remove_linenums!(Expr(syntax_block.testblock)))
@@ -68,17 +68,17 @@ end
     file = "test-b.jl"
     full_map, tabled_keys = build_info_to_syntax(interfaces, root, [file])
     testinfo = only(keys(full_map))
-    @test testinfo == TestBlockInfo("\"Challenge for JuliaSyntax\"", file, 1, 6)
+    @test testinfo == TestBlockInfo("Challenge for JuliaSyntax", file, 1, 6)
 end
 
 @testset "Nested testsets fetching" begin
     root = joinpath(pkgdir(TestPicker), "test", "sandbox", "test-subdir")
     file = "test-file-c.jl"
     interfaces = [StdTestset()]
-    testblocks = get_testblocks(interfaces, joinpath(root, file))
-    @test length(testblocks) == 3
+    syntax_blocks = get_syntax_blocks(interfaces, joinpath(root, file))
+    @test length(syntax_blocks) == 3
     # Check the first top testset
-    syntax_block = first(testblocks)
+    syntax_block = first(syntax_blocks)
     @test no_indentation(JuliaSyntax.sourcetext(syntax_block.testblock)) == """
 @testset "First level" begin
 a = 2
@@ -91,7 +91,7 @@ end"""
     @test JuliaSyntax.sourcetext.(syntax_block.preamble) == ["using Test"]
 
     # Check the next second level testset
-    next_syntax_block = testblocks[2]
+    next_syntax_block = syntax_blocks[2]
     @test no_indentation(JuliaSyntax.sourcetext(next_syntax_block.testblock)) == """
 @testset "Second level" begin
 @test c == 3
@@ -101,7 +101,7 @@ end"""
         ["using Test", "a = 2", "f(2)"]
 
     # Check another top level to ensure there is no preamble propagation
-    last_syntax_block = testblocks[3]
+    last_syntax_block = syntax_blocks[3]
     @test no_indentation(JuliaSyntax.sourcetext(last_syntax_block.testblock)) == """
 @testset "First level - B" begin
 @test w == 1
@@ -116,12 +116,12 @@ end
     interfaces = [StdTestset()]
     full_map, tabled_keys = build_info_to_syntax(interfaces, root, [file])
 
-    # Test selecting testblocks with a query that matches
+    # Test selecting syntax_blocks with a query that matches
     choices = pick_testblock(tabled_keys, "testset", root; interactive=false)
     @test !isempty(choices)
     @test length(choices) == 1  # Only one testset in test-a.jl
 
-    # Test selecting testblocks with a query that doesn't match
+    # Test selecting syntax_blocks with a query that doesn't match
     choices = pick_testblock(tabled_keys, "nonexistent", root; interactive=false)
     @test isempty(choices)
 
@@ -142,7 +142,7 @@ end
 @testset "fzf_testblock return type" begin
     interfaces = [StdTestset()]
 
-    # Test that fzf_testblock returns a vector when testblocks match
+    # Test that fzf_testblock returns a vector when syntax_blocks match
     result = fzf_testblock(interfaces, "test-a", "testset"; interactive=false)
     @test result isa Vector
     @test all(r -> r isa EvalResult, result)
