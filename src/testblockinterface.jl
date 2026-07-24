@@ -163,7 +163,7 @@ function istestblock(::StdTestset, node::SyntaxNode)
 end
 
 function blocklabel(::StdTestset, node::SyntaxNode)
-    return sourcetext(only(JuliaSyntax.children(JuliaSyntax.children(node)[2])))
+    return mapreduce(sourcetext, *, JuliaSyntax.children(JuliaSyntax.children(node)[2]))
 end
 
 function preamble(::StdTestset)
@@ -194,7 +194,7 @@ function istestblock(::TestItemInterface, node::SyntaxNode)
 end
 
 function blocklabel(::TestItemInterface, node::SyntaxNode)
-    return sourcetext(only(JuliaSyntax.children(JuliaSyntax.children(node)[2])))
+    return mapreduce(sourcetext, *, JuliaSyntax.children(JuliaSyntax.children(node)[2]))
 end
 
 function preamble(::TestItemInterface)
@@ -204,11 +204,8 @@ end
 function expr_transform(
     ::TestItemInterface, ::Expr, (; label, file_name)::TestBlockInfo, root::AbstractString
 )
-    return :(esc(
-        TestItemRunner.run_tests(
-            $(dirname(root));
-            filter=ti ->
-                (ti.name == $(label) && ti.filename == $(joinpath(root, file_name))),
-        ),
+    return :(TestItemRunner.run_tests(
+        $(dirname(root));
+        filter=ti -> (ti.name == $(label) && ti.filename == $(joinpath(root, file_name))),
     ))
 end
