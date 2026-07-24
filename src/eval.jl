@@ -45,7 +45,7 @@ This function provides the core test execution functionality for TestPicker. It 
 a temporary module, activates the package's test environment, and evaluates the test
 code in isolation to prevent interference between different test runs.
 
-Returns `nothing` when all tests pass successfully, or a [`TestSetException`](@ref)
+Returns `nothing` when all tests pass successfully, or a `TestSetException`
 when test failures are encountered.
 """
 function eval_in_module(
