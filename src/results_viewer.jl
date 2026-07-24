@@ -75,6 +75,8 @@ function visualize_test_results(
         pad = dims.height ÷ 2
         error = join(vcat(test, stack_lines[1:(start_stack - 2)]), '\n')
         traces = join.(Iterators.partition(stack_lines[start_stack:end], 2), '\n')
+        pkg_src_dir = isnothing(pkg.path) ? nothing : normpath(joinpath(pkg.path, "src"))
+        pkg_test_dir = isnothing(pkg.path) ? nothing : normpath(joinpath(pkg.path, "test"))
         enriched = map(traces) do trace
             path = match(r"(\S+\.jl):(\d+)", trace)
             if !isnothing(path)
@@ -83,7 +85,19 @@ function visualize_test_results(
                 line_start = max(0, line_int - pad)
                 line_end = line_int + pad
                 source_path = Base.find_source_file(expanduser(file_path))
-                join([trace, source_path, line, line_start, line_end], separator())
+                display_trace =
+                    if !isnothing(source_path) &&
+                        !isnothing(pkg_src_dir) &&
+                        startswith(normpath(source_path), pkg_src_dir)
+                        "\e[1;34m$(trace)\e[0m"
+                    elseif !isnothing(source_path) &&
+                        !isnothing(pkg_test_dir) &&
+                        startswith(normpath(source_path), pkg_test_dir)
+                        "\e[1;33m$(trace)\e[0m"
+                    else
+                        trace
+                    end
+                join([display_trace, source_path, line, line_start, line_end], separator())
             else
                 trace
             end
