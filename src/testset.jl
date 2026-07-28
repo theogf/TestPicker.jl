@@ -77,9 +77,31 @@ function collect_results(ts::Test.DefaultTestSet, path::Vector{String}=String[])
     return results
 end
 
+"""
+`Test.get_test_counts` returns a positional tuple on Julia <= 1.11 and a
+`Test.TestCounts` struct (with no `iterate` method) from Julia 1.12 onwards. Handle
+both instead of destructuring positionally.
+
+We also deliberately never set `dts.time_end` ourselves: on Julia 1.13+ that field is
+`@atomic`, and writing it plainly (as opposed to `Test`'s own `@atomicswap`) throws.
+Leaving it unset just means `Test.print_test_results` omits the duration, which every
+supported version already handles gracefully (`DefaultTestSet`'s own nested testsets
+skip printing entirely, so an unset `time_end` is not a state `Test.jl` special-cases).
+"""
+function total_counts(dts::Test.DefaultTestSet)
+    tc = Test.get_test_counts(dts)
+    if tc isa Tuple
+        passes, fails, errors, broken, c_passes, c_fails, c_errors, c_broken, _ = tc
+    else
+        passes, fails, errors, broken = tc.passes, tc.fails, tc.errors, tc.broken
+        c_passes, c_fails, c_errors, c_broken =
+            tc.cumulative_passes, tc.cumulative_fails, tc.cumulative_errors, tc.cumulative_broken
+    end
+    return passes + c_passes, fails + c_fails, errors + c_errors, broken + c_broken
+end
+
 function Test.finish(ts::TestPickerTestSet; print_results::Bool=Test.TESTSET_PRINT_ENABLE[])
     (; dts) = ts
-    dts.time_end = time()
     # If we are a nested test set, attach ourselves to the parent like `DefaultTestSet` does,
     # and let the outermost testset do the aggregation/printing/throwing.
     if Test.get_testset_depth() != 0
@@ -87,13 +109,7 @@ function Test.finish(ts::TestPickerTestSet; print_results::Bool=Test.TESTSET_PRI
         return ts
     end
 
-    passes, fails, errors, broken, c_passes, c_fails, c_errors, c_broken, _ = Test.get_test_counts(
-        dts
-    )
-    total_pass = passes + c_passes
-    total_fail = fails + c_fails
-    total_error = errors + c_errors
-    total_broken = broken + c_broken
+    total_pass, total_fail, total_error, total_broken = total_counts(dts)
     total = total_pass + total_fail + total_error + total_broken
 
     print_results && Test.print_test_results(dts)
