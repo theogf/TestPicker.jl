@@ -231,10 +231,21 @@ function save_test_results(
 end
 
 """
+Prefix a preview with the `@testset` nesting path it occurred under, if any.
+
+`preview` may be `nothing` (`Test.Fail.data` is `Union{Nothing,String}`), matching how
+`preview_content` is otherwise handled by `join`.
+"""
+function with_testset_path(preview, testset_path::AbstractVector{<:AbstractString})
+    isempty(testset_path) && return preview
+    return "Testset: $(join(testset_path, " > "))\n\n$(preview)"
+end
+
+"""
     save_test_results(testset::TestPickerTestSetException, testinfo::TestInfo, pkg::PackageSpec) -> Nothing
 
 Like the `Test.TestSetException` method, but each failure also carries the `@testset`
-nesting path it occurred under, which is appended to the displayed context.
+nesting path it occurred under, shown at the top of the preview text.
 """
 function save_test_results(
     testset::TestPickerTestSetException, testinfo::TestInfo, pkg::PackageSpec
@@ -244,7 +255,7 @@ function save_test_results(
             [
                 list_view(result),
                 clean_source(result.source),
-                preview_content(result),
+                with_testset_path(preview_content(result), testset_path),
                 context(testinfo, testset_path),
             ],
             separator(),
