@@ -136,10 +136,12 @@ function build_info_to_syntax(
     root::AbstractString,
     matched_files::AbstractVector{<:AbstractString},
 )
+    isempty(matched_files) &&
+        return Dict{TestBlockInfo,SyntaxBlock}(), Dict{String,TestBlockInfo}()
     info_to_syntax = mapreduce(merge, matched_files) do file
         # Keep track of file name length for padding.
         syntax_blocks = get_syntax_blocks(interfaces, joinpath(root, file))
-        Dict(
+        Dict{TestBlockInfo,SyntaxBlock}(
             map(syntax_blocks) do syntax_block
                 TestBlockInfo(syntax_block, file) => syntax_block
             end,
@@ -149,7 +151,7 @@ function build_info_to_syntax(
     max_label_length = maximum(length ∘ label, keys(info_to_syntax))
     max_filename_length = maximum(length ∘ file_name, keys(info_to_syntax))
     # We create a new mapping with human readable lines for fzf.
-    display_to_info = Dict(
+    display_to_info = Dict{String,TestBlockInfo}(
         map(collect(keys(info_to_syntax))) do (; label, file_name, line_start, line_end)
             visible_text = "$(rpad(label, max_label_length + 2)) | $(lpad(file_name,  max_filename_length + 2)):$(line_start)-$(line_end)"
             join([visible_text, file_name, line_start, line_end], separator())
