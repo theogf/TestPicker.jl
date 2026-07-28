@@ -82,9 +82,9 @@ end
     @test no_indentation(JuliaSyntax.sourcetext(syntax_block.testblock)) == """
 @testset "First level" begin
 a = 2
-f(2)
 @testset "Second level" begin
 @test c == 3
+f(2)
 d = 4
 end
 end"""
@@ -95,15 +95,19 @@ end"""
     @test no_indentation(JuliaSyntax.sourcetext(next_syntax_block.testblock)) == """
 @testset "Second level" begin
 @test c == 3
+f(2)
 d = 4
 end"""
     @test no_indentation.(JuliaSyntax.sourcetext.(next_syntax_block.preamble)) ==
-        ["using Test", "a = 2", "f(2)"]
+        ["using Test", "a = 2"]
 
     # Check another top level to ensure there is no preamble propagation
     last_syntax_block = syntax_blocks[3]
     @test no_indentation(JuliaSyntax.sourcetext(last_syntax_block.testblock)) == """
 @testset "First level - B" begin
+a = 1
+b = 2
+@test a == b
 @test w == 1
 end"""
     @test no_indentation.(JuliaSyntax.sourcetext.(last_syntax_block.preamble)) ==
