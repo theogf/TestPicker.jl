@@ -232,9 +232,12 @@ function testblock_list(
         )
         tried_testset = quote
             try
-                $(block_expr)
+                @testset TestPickerTestSet $(label) begin
+                    $(block_expr)
+                end
             catch e
-                !(e isa TestSetException) && rethrow()
+                !(e isa Union{TestSetException,TestPicker.TestPickerTestSetException}) &&
+                    rethrow()
                 TestPicker.save_test_results(e, $(test_info), $(pkg))
             end
         end

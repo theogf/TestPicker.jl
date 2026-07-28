@@ -157,8 +157,10 @@ function truncate_backtrace(backtrace_str::AbstractString)
     # 2. `top-level scope` at a TestPicker src path — the top-level expression that
     #    TestPicker evaluates when running a test block (e.g. via testblock.jl).
     is_cutoff(frame) =
-        contains(first(frame), "include(mod::Module, _path::String)") ||
-        (contains(first(frame), "top-level scope") && any(occursin(r"TestPicker[/\\]src[/\\]", l) for l in frame))
+        contains(first(frame), "include(mod::Module, _path::String)") || (
+            contains(first(frame), "top-level scope") &&
+            any(occursin(r"TestPicker[/\\]src[/\\]", l) for l in frame)
+        )
     cutoff_idx = findfirst(is_cutoff, frames)
     isnothing(cutoff_idx) && return join(vcat(header, frame_lines), '\n')
     kept_frames = frames[1:(cutoff_idx - 1)]
@@ -174,8 +176,9 @@ function preview_content(test::Test.Fail)
     return test.data
 end
 
-function context(t::TestInfo)
-    return t.filename * (isempty(t.label) ? "" : " - $(t.label)")
+function context(t::TestInfo, testset_path::AbstractVector{<:AbstractString}=String[])
+    base = t.filename * (isempty(t.label) ? "" : " - $(t.label)")
+    return isempty(testset_path) ? base : base * " - " * join(testset_path, " > ")
 end
 
 "Obtain the source from the LineNumberNode."
@@ -193,6 +196,15 @@ function clean_results_file(pkg::PackageSpec)
     return write(pkg_results_path(pkg), "")
 end
 
+"Append formatted failure entries to the package's results file."
+function write_results(path::AbstractString, error_content::Vector{String})
+    touch(path)
+    open(path, "a+") do io
+        iszero(filesize(path)) || write(io, '\0')
+        write(io, join(error_content, '\0'))
+    end
+end
+
 """
     save_test_results(testset::Test.TestSetException, testinfo::TestInfo, pkg::PackageSpec) -> Nothing
 
@@ -206,7 +218,6 @@ information, and context.
 function save_test_results(
     testset::Test.TestSetException, testinfo::TestInfo, pkg::PackageSpec
 )
-    path = pkg_results_path(pkg)
     error_content = map(testset.errors_and_fails) do test
         join(
             [
@@ -218,9 +229,39 @@ function save_test_results(
             separator(),
         )
     end
-    touch(path)
-    open(path, "a+") do io
-        iszero(filesize(path)) || write(io, '\0')
-        write(io, join(error_content, '\0'))
+    return write_results(pkg_results_path(pkg), error_content)
+end
+
+"""
+Prefix a preview with the `@testset` nesting path it occurred under, if any.
+
+`preview` may be `nothing` (`Test.Fail.data` is `Union{Nothing,String}`), matching how
+`preview_content` is otherwise handled by `join`.
+"""
+function with_testset_path(preview, testset_path::AbstractVector{<:AbstractString})
+    isempty(testset_path) && return preview
+    return "@testset: $(join(testset_path, " > "))\n\n$(preview)"
+end
+
+"""
+    save_test_results(testset::TestPickerTestSetException, testinfo::TestInfo, pkg::PackageSpec) -> Nothing
+
+Like the `Test.TestSetException` method, but each failure also carries the `@testset`
+nesting path it occurred under, shown at the top of the preview text.
+"""
+function save_test_results(
+    testset::TestPickerTestSetException, testinfo::TestInfo, pkg::PackageSpec
+)
+    error_content = map(testset.results) do (; testset_path, result)
+        join(
+            [
+                list_view(result),
+                clean_source(result.source),
+                with_testset_path(preview_content(result), testset_path),
+                context(testinfo, testset_path),
+            ],
+            separator(),
+        )
     end
+    return write_results(pkg_results_path(pkg), error_content)
 end

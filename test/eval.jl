@@ -50,4 +50,35 @@ using TestPicker: TestPicker, eval_in_module, current_pkg, EvalTest, TestInfo
     )
     @test result isa Test.TestSetException
     @test result.fail == 1
+
+    # When wrapped in a `TestPickerTestSet` (as `run_testfile`/`testblock_list` do),
+    # each failure keeps the `@testset` nesting path it occurred under.
+    nested_result = fetch(
+        Threads.@spawn begin
+            failing_nested_call = () -> eval_in_module(
+                EvalTest(
+                    :(@testset TestPickerTestSet "root" begin
+                        @testset "inner" begin
+                            @test false
+                        end
+                    end),
+                    TestInfo("eval.jl", "nested", 30),
+                ),
+                pkg_spec,
+            )
+            if isdefined(Test, :CURRENT_TESTSET)
+                Base.ScopedValues.with(
+                    Test.CURRENT_TESTSET => Test.FallbackTestSet(),
+                    Test.TESTSET_DEPTH => 0,
+                ) do
+                    failing_nested_call()
+                end
+            else
+                failing_nested_call()
+            end
+        end
+    )
+    @test nested_result isa TestPicker.TestPickerTestSetException
+    @test nested_result.fail == 1
+    @test only(nested_result.results).testset_path == ["inner"]
 end

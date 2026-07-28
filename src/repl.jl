@@ -113,7 +113,7 @@ function create_repl_test_mode(repl::AbstractREPL, main::LineEdit.Prompt)
         try
             test_mode_do_cmd(repl, input)
         catch e
-            e isa TestSetException ||
+            e isa Union{TestSetException,TestPickerTestSetException} ||
                 @error "Could not complete test picker action due to error:\n$(current_exceptions()))"
         end
         REPL.prepare_next(repl)

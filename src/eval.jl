@@ -37,7 +37,7 @@ function prepend_ex(ex, new_line::Expr)
 end
 
 """
-    eval_in_module(eval_test::EvalTest, pkg::PackageSpec) -> Union{Nothing,TestSetException}
+    eval_in_module(eval_test::EvalTest, pkg::PackageSpec) -> Union{Nothing,TestSetException,TestPickerTestSetException}
 
 Execute a test block in an isolated module with the appropriate test environment activated.
 
@@ -45,12 +45,14 @@ This function provides the core test execution functionality for TestPicker. It 
 a temporary module, activates the package's test environment, and evaluates the test
 code in isolation to prevent interference between different test runs.
 
-Returns `nothing` when all tests pass successfully, or a `TestSetException`
+Returns `nothing` when all tests pass successfully. Otherwise returns a `TestSetException`
+(bare, unwrapped test code) or a [`TestPickerTestSetException`](@ref) (test code wrapped in
+a [`TestPickerTestSet`](@ref), as done by [`run_testfile`](@ref) and [`testblock_list`](@ref))
 when test failures are encountered.
 """
 function eval_in_module(
     (; ex, info)::EvalTest, pkg::PackageSpec
-)::Union{Nothing,TestSetException}
+)::Union{Nothing,TestSetException,TestPickerTestSetException}
     (; filename, label, line) = info
     mod = gensym(pkg.name)
     revise_ex = quote
@@ -78,6 +80,9 @@ function eval_in_module(
 
     test_content = prepend_ex(ex, :(using TestPicker.Test))
     test_content = prepend_ex(test_content, :(using TestPicker: TestPicker))
+    # `@testset TestPickerTestSet ...` requires an unqualified `Symbol`, so it must be
+    # brought into scope directly rather than referenced as `TestPicker.TestPickerTestSet`.
+    test_content = prepend_ex(test_content, :(using TestPicker: TestPickerTestSet))
 
     module_expr = Expr(:module, true, mod, test_content)
 
@@ -120,7 +125,7 @@ function eval_in_module(
             Core.eval(Main, top_ex)
         end
     catch e
-        e isa TestSetException || rethrow()
+        e isa Union{TestSetException,TestPickerTestSetException} || rethrow()
         save_test_results(e, info, pkg)
         result = e
     finally
