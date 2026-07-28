@@ -157,8 +157,10 @@ function truncate_backtrace(backtrace_str::AbstractString)
     # 2. `top-level scope` at a TestPicker src path — the top-level expression that
     #    TestPicker evaluates when running a test block (e.g. via testblock.jl).
     is_cutoff(frame) =
-        contains(first(frame), "include(mod::Module, _path::String)") ||
-        (contains(first(frame), "top-level scope") && any(occursin(r"TestPicker[/\\]src[/\\]", l) for l in frame))
+        contains(first(frame), "include(mod::Module, _path::String)") || (
+            contains(first(frame), "top-level scope") &&
+            any(occursin(r"TestPicker[/\\]src[/\\]", l) for l in frame)
+        )
     cutoff_idx = findfirst(is_cutoff, frames)
     isnothing(cutoff_idx) && return join(vcat(header, frame_lines), '\n')
     kept_frames = frames[1:(cutoff_idx - 1)]
@@ -238,7 +240,7 @@ Prefix a preview with the `@testset` nesting path it occurred under, if any.
 """
 function with_testset_path(preview, testset_path::AbstractVector{<:AbstractString})
     isempty(testset_path) && return preview
-    return "Testset: $(join(testset_path, " > "))\n\n$(preview)"
+    return "@testset: $(join(testset_path, " > "))\n\n$(preview)"
 end
 
 """
