@@ -72,6 +72,7 @@ through the selection interface again.
 const LATEST_EVAL = Ref{Union{Nothing,Vector{EvalTest}}}(nothing)
 
 include("common.jl")
+include("testset.jl")
 include("eval.jl")
 include("testfile.jl")
 include("testblockinterface.jl")

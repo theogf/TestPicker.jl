@@ -185,7 +185,7 @@ function run_testfile(file::AbstractString, pkg::PackageSpec)
     testset_name = "$(pkg.name) - $(file)"
     test_info = TestInfo(file, "", 0)
     ex = quote
-        @testset $testset_name begin
+        @testset TestPickerTestSet $testset_name begin
             include($file)
         end
     end

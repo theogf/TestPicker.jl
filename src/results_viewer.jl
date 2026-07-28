@@ -174,8 +174,9 @@ function preview_content(test::Test.Fail)
     return test.data
 end
 
-function context(t::TestInfo)
-    return t.filename * (isempty(t.label) ? "" : " - $(t.label)")
+function context(t::TestInfo, testset_path::AbstractVector{<:AbstractString}=String[])
+    base = t.filename * (isempty(t.label) ? "" : " - $(t.label)")
+    return isempty(testset_path) ? base : base * " - " * join(testset_path, " > ")
 end
 
 "Obtain the source from the LineNumberNode."
@@ -193,6 +194,15 @@ function clean_results_file(pkg::PackageSpec)
     return write(pkg_results_path(pkg), "")
 end
 
+"Append formatted failure entries to the package's results file."
+function write_results(path::AbstractString, error_content::Vector{String})
+    touch(path)
+    open(path, "a+") do io
+        iszero(filesize(path)) || write(io, '\0')
+        write(io, join(error_content, '\0'))
+    end
+end
+
 """
     save_test_results(testset::Test.TestSetException, testinfo::TestInfo, pkg::PackageSpec) -> Nothing
 
@@ -206,7 +216,6 @@ information, and context.
 function save_test_results(
     testset::Test.TestSetException, testinfo::TestInfo, pkg::PackageSpec
 )
-    path = pkg_results_path(pkg)
     error_content = map(testset.errors_and_fails) do test
         join(
             [
@@ -218,9 +227,28 @@ function save_test_results(
             separator(),
         )
     end
-    touch(path)
-    open(path, "a+") do io
-        iszero(filesize(path)) || write(io, '\0')
-        write(io, join(error_content, '\0'))
+    return write_results(pkg_results_path(pkg), error_content)
+end
+
+"""
+    save_test_results(testset::TestPickerTestSetException, testinfo::TestInfo, pkg::PackageSpec) -> Nothing
+
+Like the `Test.TestSetException` method, but each failure also carries the `@testset`
+nesting path it occurred under, which is appended to the displayed context.
+"""
+function save_test_results(
+    testset::TestPickerTestSetException, testinfo::TestInfo, pkg::PackageSpec
+)
+    error_content = map(testset.results) do (; testset_path, result)
+        join(
+            [
+                list_view(result),
+                clean_source(result.source),
+                preview_content(result),
+                context(testinfo, testset_path),
+            ],
+            separator(),
+        )
     end
+    return write_results(pkg_results_path(pkg), error_content)
 end
