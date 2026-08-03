@@ -2,6 +2,7 @@ using TestPicker
 using Test
 using TestPicker: create_repl_test_mode, identify_query, print_test_docs, HELP_TEXT
 using TestPicker: TestFileQuery, LatestEval, TestsetQuery, UnmatchedQuery, TestModeDocs
+using TestPicker: TestModeCompletionProvider
 using REPL: REPL, BasicREPL, LineEdit, Terminals, LineEditREPL, run_repl
 using Markdown
 
@@ -25,6 +26,14 @@ REPL.raw!(::FakeTerminal, raw::Bool) = raw
         @test test_mode.prompt() == "test> "
         @test test_mode.on_done isa Function
     end
+end
+
+@testset "Tab completion hint keyword (Julia 1.12 compat)" begin
+    # Julia 1.12's REPL.LineEdit.complete_line dispatches to completion
+    # providers with an explicit `hint::Bool` keyword. Regression test for #95.
+    @test hasmethod(
+        REPL.complete_line, Tuple{TestModeCompletionProvider,LineEdit.PromptState}, (:hint,)
+    )
 end
 
 @testset "Identify query" begin
