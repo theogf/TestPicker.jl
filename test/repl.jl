@@ -28,14 +28,16 @@ REPL.raw!(::FakeTerminal, raw::Bool) = raw
     end
 end
 
-@testset "Tab completion hint keyword (Julia 1.12 compat)" begin
-    # Julia 1.12's REPL.LineEdit.complete_line dispatches to completion
-    # providers with an explicit `hint::Bool` keyword. Regression test for #95.
-    @test hasmethod(
-        REPL.complete_line,
-        Tuple{TestModeCompletionProvider,LineEdit.PromptState};
-        kwargs=(:hint,),
-    )
+if VERSION > v"1.11"
+    @testset "Tab completion hint keyword (Julia 1.12 compat)" begin
+        # Julia 1.12's REPL.LineEdit.complete_line dispatches to completion
+        # providers with an explicit `hint::Bool` keyword. Regression test for #95.
+        @test hasmethod(
+            REPL.complete_line,
+            Tuple{TestModeCompletionProvider,LineEdit.PromptState};
+            kwargs=(:hint,),
+        )
+    end
 end
 
 @testset "Identify query" begin
