@@ -98,3 +98,30 @@ end
     result = TestPicker.truncate_backtrace(fake_bt)
     @test result == fake_bt
 end
+
+@testset "correct_testset_ancestor_line" begin
+    lines = [
+        "using Test",              # 1
+        "",                        # 2
+        "@testset \"outer\" begin", # 3
+        "    proposal = 1",        # 4
+        "",                        # 5
+        "    @testset \"inner\" begin", # 6
+        "        @test proposal == 1", # 7
+        "    end",                 # 8
+        "end",                     # 9
+    ]
+
+    # Julia's mis-attributed ancestor frame: reported line is the first statement
+    # right after a `@testset` header, so it gets snapped up to the header itself.
+    @test TestPicker.correct_testset_ancestor_line(lines, 4) == 3
+    @test TestPicker.correct_testset_ancestor_line(lines, 7) == 6
+
+    # Lines not directly preceded by a `@testset` header are left untouched.
+    @test TestPicker.correct_testset_ancestor_line(lines, 8) == 8
+    @test TestPicker.correct_testset_ancestor_line(lines, 1) == 1
+
+    # Out-of-range line numbers are returned unchanged rather than erroring.
+    @test TestPicker.correct_testset_ancestor_line(lines, 0) == 0
+    @test TestPicker.correct_testset_ancestor_line(lines, 100) == 100
+end

@@ -11,6 +11,20 @@ function get_preview_dimension(terminal::Terminals.TextTerminal=Base.active_repl
 end
 
 """
+    correct_testset_ancestor_line(lines::AbstractVector{<:AbstractString}, line_int::Int) -> Int
+
+Julia's backtrace sometimes attributes the `macro expansion`/`top-level scope` frame for an
+*ancestor* `@testset` (i.e. one that isn't the innermost testset directly wrapping the failing
+`@test`) to the first statement inside it, instead of the `@testset ... begin` line itself.
+When the line directly above the reported one is a `@testset` header, prefer that line.
+"""
+function correct_testset_ancestor_line(lines::AbstractVector{<:AbstractString}, line_int::Int)
+    (line_int <= 1 || line_int > length(lines)) && return line_int
+    prev_line = lines[line_int - 1]
+    return occursin(r"^\s*@testset\b", prev_line) ? line_int - 1 : line_int
+end
+
+"""
     visualize_test_results(repl::AbstractREPL=Base.active_repl, pkg::PackageSpec=current_pkg()) -> Nothing
 
 Interactive visualization of test failures and errors using fzf interface.
@@ -82,9 +96,13 @@ function visualize_test_results(
             if !isnothing(path)
                 file_path, line = remove_ansi.(path.captures)
                 line_int = Base.parse(Int, line)
+                source_path = Base.find_source_file(expanduser(file_path))
+                if !isnothing(source_path) && isfile(source_path)
+                    line_int = correct_testset_ancestor_line(readlines(source_path), line_int)
+                end
+                line = string(line_int)
                 line_start = max(0, line_int - pad)
                 line_end = line_int + pad
-                source_path = Base.find_source_file(expanduser(file_path))
                 display_trace =
                     if !isnothing(source_path) &&
                         !isnothing(pkg_src_dir) &&
