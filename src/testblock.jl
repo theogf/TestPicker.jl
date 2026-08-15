@@ -211,6 +211,38 @@ function pick_testblock(
 end
 
 """
+    build_eval_test(blockinfo::TestBlockInfo, syntax_block::SyntaxBlock, pkg::PackageSpec) -> EvalTest
+
+Build an executable [`EvalTest`](@ref) from a located test block.
+
+Wraps the block in a `TestPickerTestSet`, prepends any preamble required by its
+interface, and records the source file's current modification time (used by
+[`refresh_stale_test`](@ref) to detect edits before a rerun).
+"""
+function build_eval_test(
+    blockinfo::TestBlockInfo, syntax_block::SyntaxBlock, pkg::PackageSpec
+)::EvalTest
+    (; label, file_name, line_start) = blockinfo
+    test_info = TestInfo(file_name, label, line_start)
+    (; preamble, testblock, interface) = syntax_block
+    root = get_test_dir_from_pkg(pkg)
+    block_expr = expr_transform(interface, Expr(testblock), blockinfo, root)
+    tried_testset = quote
+        try
+            @testset TestPickerTestSet $(label) begin
+                $(block_expr)
+            end
+        catch e
+            !(e isa Union{TestSetException,TestPicker.TestPickerTestSetException}) && rethrow()
+            TestPicker.save_test_results(e, $(test_info), $(pkg))
+        end
+    end
+    preamble_statements = prepend_preamble_statements(interface, Expr.(preamble))
+    ex = Expr(:block, preamble_statements..., tried_testset)
+    return EvalTest(ex, test_info, mtime(joinpath(root, file_name)))
+end
+
+"""
     testblock_list(choices, info_to_syntax, display_to_info, pkg) -> Vector{EvalTest}
 
 Convert user-selected test block choices into executable test objects.
@@ -228,25 +260,7 @@ function testblock_list(
     map(choices) do choice
         blockinfo = display_to_info[choice]
         syntax_block = info_to_syntax[blockinfo]
-        (; label, file_name, line_start) = blockinfo
-        test_info = TestInfo(file_name, label, line_start)
-        (; preamble, testblock, interface) = syntax_block
-        block_expr = expr_transform(
-            interface, Expr(testblock), blockinfo, get_test_dir_from_pkg(pkg)
-        )
-        tried_testset = quote
-            try
-                @testset TestPickerTestSet $(label) begin
-                    $(block_expr)
-                end
-            catch e
-                !(e isa Union{TestSetException,TestPicker.TestPickerTestSetException}) && rethrow()
-                TestPicker.save_test_results(e, $(test_info), $(pkg))
-            end
-        end
-        preamble_statements = prepend_preamble_statements(interface, Expr.(preamble))
-        ex = Expr(:block, preamble_statements..., tried_testset)
-        EvalTest(ex, test_info)
+        build_eval_test(blockinfo, syntax_block, pkg)
     end
 end
 

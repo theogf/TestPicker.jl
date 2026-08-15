@@ -43,11 +43,19 @@ Container for executable test code and its associated metadata.
 
 Combines a Julia expression representing test code with metadata about its source
 and context. Used throughout TestPicker for tracking and executing tests.
+
+`mtime` records the modification time of the source file when `ex` was captured, so
+that a rerun (`test> -`) can detect that the file changed in the meantime and try to
+relocate the block instead of blindly replaying a stale expression; see
+[`refresh_stale_test`](@ref).
 """
 struct EvalTest
     ex::Expr
     info::TestInfo
+    mtime::Float64
 end
+
+EvalTest(ex::Expr, info::TestInfo) = EvalTest(ex, info, 0.0)
 
 """
     EvalResult{T}
