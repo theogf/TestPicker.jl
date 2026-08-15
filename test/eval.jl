@@ -27,19 +27,16 @@ using TestPicker: TestPicker, eval_in_module, current_pkg, EvalTest, TestInfo
     # top-level.
     result = fetch(
         Threads.@spawn begin
-            failing_call = () -> eval_in_module(
-                EvalTest(
-                    :(@testset "failing" begin
-                        @test false
-                    end),
-                    TestInfo("eval.jl", "failing", 20),
-                ),
-                pkg_spec,
-            )
+            failing_call =
+                () -> eval_in_module(
+                    EvalTest(:(@testset "failing" begin
+                            @test false
+                        end), TestInfo("eval.jl", "failing", 20)),
+                    pkg_spec,
+                )
             if isdefined(Test, :CURRENT_TESTSET)
                 Base.ScopedValues.with(
-                    Test.CURRENT_TESTSET => Test.FallbackTestSet(),
-                    Test.TESTSET_DEPTH => 0,
+                    Test.CURRENT_TESTSET => Test.FallbackTestSet(), Test.TESTSET_DEPTH => 0
                 ) do
                     failing_call()
                 end
@@ -55,21 +52,21 @@ using TestPicker: TestPicker, eval_in_module, current_pkg, EvalTest, TestInfo
     # each failure keeps the `@testset` nesting path it occurred under.
     nested_result = fetch(
         Threads.@spawn begin
-            failing_nested_call = () -> eval_in_module(
-                EvalTest(
-                    :(@testset TestPickerTestSet "root" begin
-                        @testset "inner" begin
-                            @test false
-                        end
-                    end),
-                    TestInfo("eval.jl", "nested", 30),
-                ),
-                pkg_spec,
-            )
+            failing_nested_call =
+                () -> eval_in_module(
+                    EvalTest(
+                        :(@testset TestPickerTestSet "root" begin
+                            @testset "inner" begin
+                                @test false
+                            end
+                        end),
+                        TestInfo("eval.jl", "nested", 30),
+                    ),
+                    pkg_spec,
+                )
             if isdefined(Test, :CURRENT_TESTSET)
                 Base.ScopedValues.with(
-                    Test.CURRENT_TESTSET => Test.FallbackTestSet(),
-                    Test.TESTSET_DEPTH => 0,
+                    Test.CURRENT_TESTSET => Test.FallbackTestSet(), Test.TESTSET_DEPTH => 0
                 ) do
                     failing_nested_call()
                 end

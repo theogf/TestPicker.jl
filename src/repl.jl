@@ -58,7 +58,9 @@ struct TestModeCompletionProvider <: REPL.LineEdit.CompletionProvider end
 
 Provide completions based on available test file names (without paths).
 """
-function REPL.complete_line(::TestModeCompletionProvider, s::LineEdit.PromptState; hint::Bool=false)
+function REPL.complete_line(
+    ::TestModeCompletionProvider, s::LineEdit.PromptState; hint::Bool=false
+)
     partial = String(take!(copy(LineEdit.buffer(s))))
 
     # Don't complete if ':' is present (testset query mode)
