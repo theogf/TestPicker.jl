@@ -216,7 +216,7 @@ end
 Build an executable [`EvalTest`](@ref) from a located test block.
 
 Wraps the block in a `TestPickerTestSet`, prepends any preamble required by its
-interface, and records the source file's current modification time (used by
+interface, and records a CRC32c checksum of the source file's current contents (used by
 [`refresh_stale_test`](@ref) to detect edits before a rerun).
 """
 function build_eval_test(
@@ -239,7 +239,8 @@ function build_eval_test(
     end
     preamble_statements = prepend_preamble_statements(interface, Expr.(preamble))
     ex = Expr(:block, preamble_statements..., tried_testset)
-    return EvalTest(ex, test_info, mtime(joinpath(root, file_name)))
+    content_hash = crc32c(read(joinpath(root, file_name)))
+    return EvalTest(ex, test_info, content_hash)
 end
 
 """
