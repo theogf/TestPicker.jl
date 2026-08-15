@@ -1,6 +1,7 @@
 module TestPicker
 
 using bat_jll: get_bat_path
+using CRC32c: crc32c
 using fzf_jll: fzf
 using JuliaSyntax
 using JuliaSyntax: @K_str, sourcetext

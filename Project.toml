@@ -5,6 +5,7 @@ version = "2.6.0"
 
 
 [deps]
+CRC32c = "8bf52ea8-c179-5cab-976a-9e18b702a9bc"
 InteractiveUtils = "b77e0a4c-d291-57a0-90e8-8db25a27a240"
 JuliaSyntax = "70703baa-626e-46a2-a12c-08ffd08c73b4"
 Markdown = "d6f4376e-aef5-505a-96c1-9c027394607a"
@@ -18,6 +19,7 @@ bat_jll = "e1736374-6498-5d90-ab12-e7e58ba27d07"
 fzf_jll = "214eeab7-80f7-51ab-84ad-2988db7cef09"
 
 [compat]
+CRC32c = "1"
 InteractiveUtils = "1"
 JuliaSyntax = "0.4, 1"
 Markdown = "1"

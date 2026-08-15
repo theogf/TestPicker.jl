@@ -215,8 +215,12 @@ end
 
 Hash the content of a file, used to detect that a test file was modified between
 the moment a test block was picked and the moment it is rerun.
+
+Uses the hardware-accelerated CRC32c checksum from the standard library, streaming
+the file instead of reading it into memory. Collision resistance is irrelevant here:
+the hash only guards against missing an accidental edit of a test file.
 """
-hash_file(path::AbstractString) = hash(read(path))
+hash_file(path::AbstractString) = UInt64(open(crc32c, path))
 
 """
     build_evaltest(blockinfo::TestBlockInfo, syntax_block::SyntaxBlock, pkg::PackageSpec) -> EvalTest
