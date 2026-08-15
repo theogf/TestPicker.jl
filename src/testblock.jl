@@ -236,8 +236,7 @@ function testblock_list(
                     $(block_expr)
                 end
             catch e
-                !(e isa Union{TestSetException,TestPicker.TestPickerTestSetException}) &&
-                    rethrow()
+                !(e isa Union{TestSetException,TestPicker.TestPickerTestSetException}) && rethrow()
                 TestPicker.save_test_results(e, $(test_info), $(pkg))
             end
         end

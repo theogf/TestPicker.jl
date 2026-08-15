@@ -94,8 +94,9 @@ function total_counts(dts::Test.DefaultTestSet)
         passes, fails, errors, broken, c_passes, c_fails, c_errors, c_broken, _ = tc
     else
         passes, fails, errors, broken = tc.passes, tc.fails, tc.errors, tc.broken
-        c_passes, c_fails, c_errors, c_broken =
-            tc.cumulative_passes, tc.cumulative_fails, tc.cumulative_errors, tc.cumulative_broken
+        c_passes, c_fails, c_errors, c_broken = tc.cumulative_passes,
+        tc.cumulative_fails, tc.cumulative_errors,
+        tc.cumulative_broken
     end
     return passes + c_passes, fails + c_fails, errors + c_errors, broken + c_broken
 end
