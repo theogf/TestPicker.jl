@@ -211,13 +211,53 @@ function pick_testblock(
 end
 
 """
+    hash_file(path::AbstractString) -> UInt64
+
+Hash the content of a file, used to detect that a test file was modified between
+the moment a test block was picked and the moment it is rerun.
+"""
+hash_file(path::AbstractString) = hash(read(path))
+
+"""
+    build_evaltest(blockinfo::TestBlockInfo, syntax_block::SyntaxBlock, pkg::PackageSpec) -> EvalTest
+
+Build an executable [`EvalTest`](@ref) from a parsed test block.
+
+The test block is wrapped in a try-catch block to handle test failures gracefully and
+save results, and its preamble statements are prepended. The current content hash of the
+source file is recorded so that reruns can detect a stale expression.
+"""
+function build_evaltest(
+    blockinfo::TestBlockInfo, syntax_block::SyntaxBlock, pkg::PackageSpec
+)
+    (; label, file_name, line_start) = blockinfo
+    test_info = TestInfo(file_name, label, line_start)
+    (; preamble, testblock, interface) = syntax_block
+    root = get_test_dir_from_pkg(pkg)
+    block_expr = expr_transform(interface, Expr(testblock), blockinfo, root)
+    tried_testset = quote
+        try
+            @testset TestPickerTestSet $(label) begin
+                $(block_expr)
+            end
+        catch e
+            !(e isa Union{TestSetException,TestPicker.TestPickerTestSetException}) &&
+                rethrow()
+            TestPicker.save_test_results(e, $(test_info), $(pkg))
+        end
+    end
+    preamble_statements = prepend_preamble_statements(interface, Expr.(preamble))
+    ex = Expr(:block, preamble_statements..., tried_testset)
+    return EvalTest(ex, test_info, hash_file(joinpath(root, file_name)))
+end
+
+"""
     testblock_list(choices, info_to_syntax, display_to_info, pkg) -> Vector{EvalTest}
 
 Convert user-selected test block choices into executable test objects.
 
 Takes the selected display strings from fzf and converts them into `EvalTest` objects
-that can be evaluated. Each test is wrapped in a try-catch block to handle test failures
-gracefully and save results.
+that can be evaluated (see [`build_evaltest`](@ref)).
 """
 function testblock_list(
     choices::Vector{<:AbstractString},
@@ -228,26 +268,52 @@ function testblock_list(
     map(choices) do choice
         blockinfo = display_to_info[choice]
         syntax_block = info_to_syntax[blockinfo]
-        (; label, file_name, line_start) = blockinfo
-        test_info = TestInfo(file_name, label, line_start)
-        (; preamble, testblock, interface) = syntax_block
-        block_expr = expr_transform(
-            interface, Expr(testblock), blockinfo, get_test_dir_from_pkg(pkg)
-        )
-        tried_testset = quote
-            try
-                @testset TestPickerTestSet $(label) begin
-                    $(block_expr)
-                end
-            catch e
-                !(e isa Union{TestSetException,TestPicker.TestPickerTestSetException}) && rethrow()
-                TestPicker.save_test_results(e, $(test_info), $(pkg))
-            end
-        end
-        preamble_statements = prepend_preamble_statements(interface, Expr.(preamble))
-        ex = Expr(:block, preamble_statements..., tried_testset)
-        EvalTest(ex, test_info)
+        build_evaltest(blockinfo, syntax_block, pkg)
     end
+end
+
+"""
+    refresh_evaltest(interfaces, test::EvalTest, pkg::PackageSpec) -> EvalTest
+
+Return an up-to-date version of `test`, rebuilding its expression if the source file changed.
+
+Rerunning a test block evaluates a previously built expression, which would silently ignore
+any edit made to the test file in the meantime. This function detects such edits by comparing
+the stored file hash with the current one. If the file changed, it is re-parsed and the test
+block with the same label is looked up again (when several blocks share the label, the one
+closest to the original line wins) and rebuilt, picking up both the new block content and any
+modified preamble.
+
+The original `test` is returned unchanged when it does not track a source file
+(`filehash === nothing`, e.g. whole-file runs that `include` the file afresh), when the file
+content is identical, or — with a warning — when the file or the block cannot be found anymore.
+"""
+function refresh_evaltest(
+    interfaces::Vector{<:TestBlockInterface}, test::EvalTest, pkg::PackageSpec
+)
+    isnothing(test.filehash) && return test
+    (; filename, label, line) = test.info
+    root = get_test_dir_from_pkg(pkg)
+    path = joinpath(root, filename)
+    if !isfile(path)
+        @warn "Test file $(filename) does not exist anymore, rerunning the previously evaluated version of $(label)."
+        return test
+    end
+    hash_file(path) == test.filehash && return test
+    matches = [
+        (TestBlockInfo(syntax_block, filename), syntax_block) for
+        syntax_block in get_syntax_blocks(interfaces, path)
+    ]
+    filter!(((blockinfo, _),) -> blockinfo.label == label, matches)
+    if isempty(matches)
+        @warn "Could not find test block $(label) in the modified file $(filename), rerunning the previously evaluated version."
+        return test
+    end
+    blockinfo, syntax_block = argmin(
+        ((blockinfo, _),) -> abs(blockinfo.line_start - line), matches
+    )
+    @info "$(filename) was modified, rerunning the updated version of test block $(label)."
+    return build_evaltest(blockinfo, syntax_block, pkg)
 end
 
 """

@@ -217,8 +217,11 @@ function test_mode_do_cmd(repl::AbstractREPL, input::String)
     elseif test_type == LatestEval
         pkg = current_pkg()
         clean_results_file(pkg)
-        for expr in inputs
-            eval_in_module(expr, pkg)
+        # Rebuild tests whose source file changed since they were picked.
+        tests = map(test -> refresh_evaltest(INTERFACES, test, pkg), inputs)
+        LATEST_EVAL[] = tests
+        for test in tests
+            eval_in_module(test, pkg)
         end
     elseif test_type == TestModeDocs
         print_test_docs()

@@ -13,7 +13,7 @@ const HELP_TEXT = Markdown.md"""
   - Select testset(s) in fzf and press Enter to run
 
 ## Special Commands
-- `test> -` → Re-run the last test evaluation
+- `test> -` → Re-run the last test evaluation (picks up edits made to the test files)
 - `test> @` → Inspect test results (errors/failures)
   - Press Enter to view stacktrace
   - Press Ctrl+e to edit test file

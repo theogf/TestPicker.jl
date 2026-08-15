@@ -43,11 +43,19 @@ Container for executable test code and its associated metadata.
 
 Combines a Julia expression representing test code with metadata about its source
 and context. Used throughout TestPicker for tracking and executing tests.
+
+For test blocks, `filehash` stores a hash of the source file content at the time
+the expression was built, so that reruns can detect a modified file and rebuild
+the expression (see [`refresh_evaltest`](@ref)). A value of `nothing` means the
+expression reads its source afresh on every run (e.g. whole-file runs based on
+`include`) and can never go stale.
 """
 struct EvalTest
     ex::Expr
     info::TestInfo
+    filehash::Union{Nothing,UInt64}
 end
+EvalTest(ex::Expr, info::TestInfo) = EvalTest(ex, info, nothing)
 
 """
     EvalResult{T}

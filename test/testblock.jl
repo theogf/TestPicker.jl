@@ -1,7 +1,8 @@
 using Test
 using JuliaSyntax
+using Pkg: PackageSpec
 using TestPicker
-using TestPicker: TestBlockInfo, StdTestset, SyntaxBlock, EvalResult
+using TestPicker: TestBlockInfo, StdTestset, SyntaxBlock, EvalResult, EvalTest, TestInfo
 using TestPicker:
     get_syntax_blocks,
     get_testfiles,
@@ -9,7 +10,11 @@ using TestPicker:
     build_info_to_syntax,
     pick_testblock,
     istestblock,
-    fzf_testblock
+    fzf_testblock,
+    testblock_list,
+    refresh_evaltest,
+    hash_file,
+    get_test_dir_from_pkg
 
 function no_indentation(s::AbstractString)
     return replace(s, r"^\s+"m => "")
@@ -150,4 +155,89 @@ end
     result = fzf_testblock(interfaces, "test-a", "testset"; interactive=false)
     @test result isa Vector
     @test all(r -> r isa EvalResult, result)
+end
+
+@testset "Refresh eval test when file was modified" begin
+    pkg = PackageSpec(; name="TestPicker", path=pkgdir(TestPicker))
+    root = get_test_dir_from_pkg(pkg)
+    interfaces = [StdTestset()]
+    filename = joinpath("sandbox", "tmp-refresh.jl")
+    path = joinpath(root, filename)
+    try
+        write(
+            path,
+            """
+            using Test
+            x = 1
+            @testset "refresh me" begin
+                @test x == 1
+            end
+            """,
+        )
+        full_map, tabled_keys = build_info_to_syntax(interfaces, root, [filename])
+        test = only(testblock_list(collect(keys(tabled_keys)), full_map, tabled_keys, pkg))
+        @test test.info.line == 3
+        @test test.filehash == hash_file(path)
+
+        # Unchanged file: the exact same test is returned.
+        @test refresh_evaltest(interfaces, test, pkg) === test
+
+        # Tests without a tracked file (e.g. whole-file runs) are returned as-is.
+        file_test = EvalTest(:(include($path)), TestInfo(filename, "", 0))
+        @test refresh_evaltest(interfaces, file_test, pkg) === file_test
+
+        # Modified file: the block is looked up again and the expression rebuilt.
+        write(
+            path,
+            """
+            using Test
+            x = 2
+
+            @testset "refresh me" begin
+                @test x == 2
+            end
+            """,
+        )
+        refreshed = @test_logs (:info,) refresh_evaltest(interfaces, test, pkg)
+        @test refreshed.info.line == 4
+        @test refreshed.filehash == hash_file(path)
+        @test refreshed.filehash != test.filehash
+        @test occursin("x == 2", string(refreshed.ex))
+        # The refreshed preamble is picked up as well.
+        @test occursin("x = 2", string(refreshed.ex))
+
+        # Duplicated labels: the block closest to the original line wins.
+        write(
+            path,
+            """
+            using Test
+            @testset "refresh me" begin
+                @test true
+            end
+            @testset "refresh me" begin
+                @test true
+            end
+            """,
+        )
+        refreshed = @test_logs (:info,) refresh_evaltest(interfaces, test, pkg)
+        @test refreshed.info.line == 2
+
+        # Renamed block: fall back to the previously evaluated version with a warning.
+        write(
+            path,
+            """
+            using Test
+            @testset "renamed" begin
+                @test true
+            end
+            """,
+        )
+        @test (@test_logs (:warn,) refresh_evaltest(interfaces, test, pkg)) === test
+
+        # Deleted file: fall back to the previously evaluated version with a warning.
+        rm(path)
+        @test (@test_logs (:warn,) refresh_evaltest(interfaces, test, pkg)) === test
+    finally
+        isfile(path) && rm(path)
+    end
 end
