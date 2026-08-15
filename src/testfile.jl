@@ -189,7 +189,9 @@ function run_testfile(file::AbstractString, pkg::PackageSpec)
             include($file)
         end
     end
-    test = EvalTest(ex, test_info)
+    # `ex` only wraps `include`, so the real test code is invisible to `EvalTest`'s
+    # default `expected_tests` estimate; predict it from the file's source instead.
+    test = EvalTest(ex, test_info, 0x00000000, count_expected_tests_in_file(file))
     if !isnothing(LATEST_EVAL[])
         push!(LATEST_EVAL[], test)
     else

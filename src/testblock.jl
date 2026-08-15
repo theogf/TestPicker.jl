@@ -247,7 +247,10 @@ function build_eval_test(
     preamble_statements = prepend_preamble_statements(interface, Expr.(preamble))
     ex = Expr(:block, preamble_statements..., tried_testset)
     content_hash = crc32c(read(joinpath(root, file_name)))
-    return EvalTest(ex, test_info, content_hash)
+    # Count from the untransformed block: some interfaces (e.g. `TestItemInterface`) replace
+    # the real test code with a call to an external runner in `ex`, hiding it from `count_expected_tests`.
+    expected_tests = count_expected_tests(Expr(testblock))
+    return EvalTest(ex, test_info, content_hash, expected_tests)
 end
 
 """

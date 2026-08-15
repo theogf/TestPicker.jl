@@ -16,6 +16,7 @@ using TestPicker:
             "sandbox/test-b.jl",
             "sandbox/test-subdir/test-file-c.jl",
             "sandbox/weird-name.jl",
+            "sandbox/sleep-demo.jl",
         ],
     )
 end

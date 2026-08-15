@@ -1,6 +1,13 @@
 using Test
 using Pkg: PackageSpec
-using TestPicker: TestPicker, eval_in_module, current_pkg, EvalTest, TestInfo
+using TestPicker:
+    TestPicker,
+    eval_in_module,
+    current_pkg,
+    EvalTest,
+    TestInfo,
+    count_expected_tests,
+    count_expected_tests_in_file
 
 @testset "Test eval in module" begin
     path = pkgdir(TestPicker)
@@ -78,4 +85,56 @@ using TestPicker: TestPicker, eval_in_module, current_pkg, EvalTest, TestInfo
     @test nested_result isa TestPicker.TestPickerTestSetException
     @test nested_result.fail == 1
     @test only(nested_result.results).testset_path == ["inner"]
+end
+
+@testset "count_expected_tests" begin
+    # Recurses into nested `@testset`s.
+    @test count_expected_tests(
+        :(@testset "root" begin
+            @testset "a" begin
+                @test true
+                @test true
+            end
+            @testset "b" begin
+                @test true
+                @testset "b-inner" begin
+                    @test true
+                    @test true
+                end
+            end
+        end),
+    ) == 5
+
+    # Every macro that records exactly one leaf `Test.Result` counts once, and non-test
+    # code doesn't count at all.
+    @test count_expected_tests(
+        :(begin
+            x = 1
+            @test_throws ErrorException error()
+            @test_broken false
+            @test_skip false
+        end),
+    ) == 3
+
+    # A `@test` inside a runtime loop is only counted once syntactically, however many
+    # times it actually runs: this is a static upper-bound prediction, not an exact count.
+    @test count_expected_tests(:(for i in 1:10
+        @test true
+    end)) == 1
+
+    @test count_expected_tests(:(sin(3))) == 0
+
+    # `EvalTest`'s default constructor derives `expected_tests` straight from `ex`.
+    test = EvalTest(:(@testset "a" begin
+        @test true
+        @test true
+    end), TestInfo("eval.jl", "a", 0))
+    @test test.expected_tests == 2
+
+    # Parses from a file's source, since `run_testfile` only sees `include(file)` in `ex`.
+    mktemp() do path, io
+        write(io, "@testset \"f\" begin\n    @test true\n    @test true\n    @test true\nend\n")
+        close(io)
+        @test count_expected_tests_in_file(path) == 3
+    end
 end

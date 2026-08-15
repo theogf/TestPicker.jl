@@ -51,7 +51,7 @@ a [`TestPickerTestSet`](@ref), as done by [`run_testfile`](@ref) and [`testblock
 when test failures are encountered.
 """
 function eval_in_module(
-    (; ex, info)::EvalTest, pkg::PackageSpec
+    (; ex, info, expected_tests)::EvalTest, pkg::PackageSpec
 )::Union{Nothing,TestSetException,TestPickerTestSetException}
     (; filename, label, line) = info
     mod = gensym(pkg.name)
@@ -117,6 +117,14 @@ function eval_in_module(
         @info "Executing test file $(filename)"
     end
     @debug "Evaluating code block" top_ex
+    CURRENT_PROGRESS_COUNTS[] = ProgressCounts()
+    CURRENT_PROGRESS[] = ProgressMeter.Progress(
+        max(expected_tests, 1);
+        desc="Tests evaluated: ",
+        enabled=TEST_PROGRESS_ENABLED[] && Test.TESTSET_PRINT_ENABLE[],
+        showspeed=true,
+        barglyphs=ProgressMeter.BarGlyphs('╢', '█', ['▏', '▎', '▍', '▌', '▋', '▊', '▉'], ' ', '╟'),
+    )
     result = nothing
     try
         # cd acts such that also evaled expressions in `Main` are affected.
@@ -129,6 +137,7 @@ function eval_in_module(
         save_test_results(e, info, pkg)
         result = e
     finally
+        finish_progress!()
         Core.eval(Main, env_return)
         Core.eval(Main, clean_module)
     end

@@ -1,4 +1,9 @@
 using SafeTestsets
+using TestPicker
+
+# A progress bar has no useful audience in the test suite's own output, and would just
+# contend with `Test.jl`'s and `@safetestset`'s own printing.
+TestPicker.TEST_PROGRESS_ENABLED[] = false
 
 @safetestset "eval" begin
     include("eval.jl")

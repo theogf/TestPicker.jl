@@ -9,6 +9,7 @@ using InteractiveUtils: editor
 using Pkg
 using Pkg: PackageSpec
 using Pkg.Types: Context
+using ProgressMeter: ProgressMeter
 using REPL
 using REPL: LineEdit, Terminals
 using Revise: Revise
@@ -51,14 +52,23 @@ captured, so that a rerun (`test> -`) can detect that the file changed in the me
 with coarse mtime resolution, or a save that happens to restore the original mtime) and
 try to relocate the block instead of blindly replaying a stale expression; see
 [`refresh_stale_test`](@ref).
+
+`expected_tests` is a static prediction (see [`count_expected_tests`](@ref)) of how many
+tests `ex` will run, used to size the progress bar; it defaults to counting directly from
+`ex`, which is only accurate when `ex` contains the real test code rather than hiding it
+behind `include` (as [`run_testfile`](@ref) does), so callers that wrap a file should
+override it with [`count_expected_tests_in_file`](@ref).
 """
 struct EvalTest
     ex::Expr
     info::TestInfo
     content_hash::UInt32
+    expected_tests::Int
 end
 
-EvalTest(ex::Expr, info::TestInfo) = EvalTest(ex, info, 0x00000000)
+function EvalTest(ex::Expr, info::TestInfo, content_hash::UInt32=0x00000000)
+    return EvalTest(ex, info, content_hash, count_expected_tests(ex))
+end
 
 """
     EvalResult{T}
