@@ -1,5 +1,6 @@
 using Test
 using JuliaSyntax
+using Pkg.Types: PackageSpec
 using TestPicker
 using TestPicker: TestBlockInfo, StdTestset, SyntaxBlock, EvalResult
 using TestPicker:
@@ -9,7 +10,9 @@ using TestPicker:
     build_info_to_syntax,
     pick_testblock,
     istestblock,
-    fzf_testblock
+    fzf_testblock,
+    testblock_list,
+    refresh_stale_test
 
 function no_indentation(s::AbstractString)
     return replace(s, r"^\s+"m => "")
@@ -150,4 +153,86 @@ end
     result = fzf_testblock(interfaces, "test-a", "testset"; interactive=false)
     @test result isa Vector
     @test all(r -> r isa EvalResult, result)
+end
+
+@testset "Refreshing stale reruns" begin
+    # `root` must match `get_test_dir_from_pkg(pkg)` (the package's "test" directory),
+    # since `refresh_stale_test`/`build_eval_test` resolve the file's content hash from
+    # `pkg`.
+    root = joinpath(pkgdir(TestPicker), "test")
+    pkg = PackageSpec(; name="TestPicker", path=pkgdir(TestPicker))
+    interfaces = [StdTestset()]
+    file = "sandbox/test-rerun-tmp.jl"
+    path = joinpath(root, file)
+
+    write(
+        path,
+        """
+        using Test
+
+        @testset "rerun target" begin
+            @test true
+        end
+        """,
+    )
+    try
+        full_map, tabled_keys = build_info_to_syntax(interfaces, root, [file])
+        choices = pick_testblock(tabled_keys, "rerun target", root; interactive=false)
+        test = only(testblock_list(choices, full_map, tabled_keys, pkg))
+        @test test.info.line == 3
+
+        # Unmodified file: the exact same test is returned untouched.
+        @test refresh_stale_test(test, pkg) === test
+
+        # Modify the file so the same block now starts further down.
+        write(
+            path,
+            """
+            using Test
+
+            # A comment shifting the block down.
+
+            @testset "rerun target" begin
+                @test true
+            end
+            """,
+        )
+
+        refreshed = refresh_stale_test(test, pkg)
+        @test refreshed !== test
+        @test refreshed.info.line == 5
+        @test refreshed.info.label == "rerun target"
+
+        # If the label is now ambiguous, give up rather than guessing which block is meant
+        # — the stale test is dropped (`nothing`), not silently re-run.
+        write(
+            path,
+            """
+            using Test
+
+            @testset "rerun target" begin
+                @test true
+            end
+
+            @testset "rerun target" begin
+                @test true
+            end
+            """,
+        )
+        @test_logs (:warn,) match_mode = :any refresh_stale_test(refreshed, pkg)
+        @test isnothing(refresh_stale_test(refreshed, pkg))
+
+        # If the block can no longer be found, it's dropped too, instead of rerunning
+        # outdated code.
+        write(path, "using Test\n")
+        @test_logs (:warn,) match_mode = :any refresh_stale_test(refreshed, pkg)
+        @test isnothing(refresh_stale_test(refreshed, pkg))
+
+        # If the file itself disappears, same thing.
+        rm(path)
+        @test_logs (:warn,) match_mode = :any refresh_stale_test(refreshed, pkg)
+        @test isnothing(refresh_stale_test(refreshed, pkg))
+    finally
+        rm(path; force=true)
+    end
 end

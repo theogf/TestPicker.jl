@@ -217,8 +217,10 @@ function test_mode_do_cmd(repl::AbstractREPL, input::String)
     elseif test_type == LatestEval
         pkg = current_pkg()
         clean_results_file(pkg)
-        for expr in inputs
-            eval_in_module(expr, pkg)
+        refreshed = filter(!isnothing, refresh_stale_test.(inputs, Ref(pkg)))
+        LATEST_EVAL[] = refreshed
+        for test in refreshed
+            eval_in_module(test, pkg)
         end
     elseif test_type == TestModeDocs
         print_test_docs()

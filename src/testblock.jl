@@ -62,7 +62,7 @@ to determine what constitutes a test block.
 - `Vector{SyntaxBlock}`: Collection of parsed test blocks with their preambles
 """
 function get_syntax_blocks(interfaces::Vector{<:TestBlockInterface}, file::AbstractString)
-    root = parseall(SyntaxNode, read(file, String); filename=file)
+    root = parseall(SyntaxNode, read(file, String); filename = file)
     return mapreduce(vcat, interfaces) do interface
         syntax_blocks = Vector{SyntaxBlock}()
         get_syntax_blocks!(interface, syntax_blocks, root)
@@ -73,7 +73,7 @@ function get_syntax_blocks!(
     interface::TestBlockInterface,
     syntax_blocks::Vector{SyntaxBlock},
     node::SyntaxNode,
-    preamble::Vector{SyntaxNode}=SyntaxNode[],
+    preamble::Vector{SyntaxNode} = SyntaxNode[],
 )
     nodes = JuliaSyntax.children(node)
     isnothing(nodes) && return nothing
@@ -112,12 +112,13 @@ get_matching_files("math", files)  # Returns ["test/test_math.jl"]
 ```
 """
 function get_matching_files(
-    file_query::AbstractString, test_files::AbstractVector{<:AbstractString}
+    file_query::AbstractString,
+    test_files::AbstractVector{<:AbstractString},
 )
     return readlines(
         pipeline(
-            Cmd(`$(fzf()) --filter $(file_query)`; ignorestatus=true);
-            stdin=IOBuffer(join(test_files, '\n')),
+            Cmd(`$(fzf()) --filter $(file_query)`; ignorestatus = true);
+            stdin = IOBuffer(join(test_files, '\n')),
         ),
     )
 end
@@ -147,6 +148,8 @@ function build_info_to_syntax(
             end,
         )
     end
+    # None of the matched files contained any recognized test block.
+    isempty(info_to_syntax) && return info_to_syntax, Dict{String,TestBlockInfo}()
     # We estimate the max length to perform some padding.
     max_label_length = maximum(length ∘ label, keys(info_to_syntax))
     max_filename_length = maximum(length ∘ file_name, keys(info_to_syntax))
@@ -175,16 +178,17 @@ function pick_testblock(
     tabled_keys::Dict{String,TestBlockInfo},
     testset_query::AbstractString,
     root::AbstractString;
-    interactive::Bool=true,
+    interactive::Bool = true,
 )
     args = ["--filter", testset_query, "-d", "$(separator())", "--nth", "1"]
-    cmd = Cmd(`$(fzf()) $(args)`; ignorestatus=true, dir=root)
+    cmd = Cmd(`$(fzf()) $(args)`; ignorestatus = true, dir = root)
     # We do a dry lookup to see what results we get.
-    filtered_list = readlines(pipeline(cmd; stdin=IOBuffer(join(keys(tabled_keys), '\n'))))
+    filtered_list =
+        readlines(pipeline(cmd; stdin = IOBuffer(join(keys(tabled_keys), '\n'))))
     if !interactive || isone(length(filtered_list))
         # Non-interactive mode: use fzf --filter to get matching test blocks
         args = ["--filter", testset_query, "-d", "$(separator())", "--nth", "1"]
-        cmd = Cmd(`$(fzf()) $(args)`; ignorestatus=true, dir=root)
+        cmd = Cmd(`$(fzf()) $(args)`; ignorestatus = true, dir = root)
         return filtered_list
     end
 
@@ -206,8 +210,44 @@ function pick_testblock(
         "--query", # Initial query on the testset names.
         testset_query,
     ]
-    cmd = Cmd(`$(fzf()) $(args)`; ignorestatus=true, dir=root)
-    return readlines(pipeline(cmd; stdin=IOBuffer(join(keys(tabled_keys), '\n'))))
+    cmd = Cmd(`$(fzf()) $(args)`; ignorestatus = true, dir = root)
+    return readlines(pipeline(cmd; stdin = IOBuffer(join(keys(tabled_keys), '\n'))))
+end
+
+"""
+    build_eval_test(blockinfo::TestBlockInfo, syntax_block::SyntaxBlock, pkg::PackageSpec) -> EvalTest
+
+Build an executable [`EvalTest`](@ref) from a located test block.
+
+Wraps the block in a `TestPickerTestSet`, prepends any preamble required by its
+interface, and records a CRC32c checksum of the source file's current contents (used by
+[`refresh_stale_test`](@ref) to detect edits before a rerun).
+"""
+function build_eval_test(
+    blockinfo::TestBlockInfo,
+    syntax_block::SyntaxBlock,
+    pkg::PackageSpec,
+)::EvalTest
+    (; label, file_name, line_start) = blockinfo
+    test_info = TestInfo(file_name, label, line_start)
+    (; preamble, testblock, interface) = syntax_block
+    root = get_test_dir_from_pkg(pkg)
+    block_expr = expr_transform(interface, Expr(testblock), blockinfo, root)
+    tried_testset = quote
+        try
+            @testset TestPickerTestSet $(label) begin
+                $(block_expr)
+            end
+        catch e
+            !(e isa Union{TestSetException,TestPicker.TestPickerTestSetException}) &&
+                rethrow()
+            TestPicker.save_test_results(e, $(test_info), $(pkg))
+        end
+    end
+    preamble_statements = prepend_preamble_statements(interface, Expr.(preamble))
+    ex = Expr(:block, preamble_statements..., tried_testset)
+    content_hash = crc32c(read(joinpath(root, file_name)))
+    return EvalTest(ex, test_info, content_hash)
 end
 
 """
@@ -228,26 +268,56 @@ function testblock_list(
     map(choices) do choice
         blockinfo = display_to_info[choice]
         syntax_block = info_to_syntax[blockinfo]
-        (; label, file_name, line_start) = blockinfo
-        test_info = TestInfo(file_name, label, line_start)
-        (; preamble, testblock, interface) = syntax_block
-        block_expr = expr_transform(
-            interface, Expr(testblock), blockinfo, get_test_dir_from_pkg(pkg)
-        )
-        tried_testset = quote
-            try
-                @testset TestPickerTestSet $(label) begin
-                    $(block_expr)
-                end
-            catch e
-                !(e isa Union{TestSetException,TestPicker.TestPickerTestSetException}) && rethrow()
-                TestPicker.save_test_results(e, $(test_info), $(pkg))
-            end
-        end
-        preamble_statements = prepend_preamble_statements(interface, Expr.(preamble))
-        ex = Expr(:block, preamble_statements..., tried_testset)
-        EvalTest(ex, test_info)
+        build_eval_test(blockinfo, syntax_block, pkg)
     end
+end
+
+"""
+    refresh_stale_test(test::EvalTest, pkg::PackageSpec) -> Union{Nothing,EvalTest}
+
+Re-locate a test block's source before rerunning it, if the file changed since capture.
+
+`test> -` normally replays the exact expression captured when the block was selected.
+If the source file was edited since then, that expression no longer reflects what's on
+disk. This compares a CRC32c checksum of the file's current contents against the one
+recorded on `test` (a content hash, rather than the modification time, so a real edit is
+never missed due to coarse mtime resolution or a save that happens to restore the
+original mtime). If the checksum changed, the whole file is re-parsed from scratch via
+[`build_info_to_syntax`](@ref) — the same routine used for the original selection, so
+every block's preamble is recomputed exactly as it would be for a fresh pick — and the
+block whose label aligns with `test`'s is looked up in the result.
+
+Whole-file tests (empty label, from `test> <file>`) are returned unchanged: they
+`include` the file, so they already see edits on rerun. If the file can no longer be
+found, if no block with a matching label exists anymore (renamed or removed), or if the
+label is now ambiguous (matches more than one block), there is no reliable way to know
+what to rerun: a warning is emitted and `nothing` is returned, so the stale test is
+dropped rather than silently re-running outdated code.
+"""
+function refresh_stale_test(test::EvalTest, pkg::PackageSpec)::Union{Nothing,EvalTest}
+    (; info) = test
+    isempty(info.label) && return test
+    root = get_test_dir_from_pkg(pkg)
+    path = joinpath(root, info.filename)
+    if !isfile(path)
+        @warn "File $(info.filename) could not be found anymore; dropping test block \"$(info.label)\" from the rerun."
+        return nothing
+    end
+    current_hash = crc32c(read(path))
+    current_hash == test.content_hash && return test
+
+    @info "File $(info.filename) was modified since test block \"$(info.label)\" was captured; refetching it from scratch."
+    info_to_syntax, _ = build_info_to_syntax(INTERFACES, root, [info.filename])
+    matches = filter(((blockinfo, _),) -> blockinfo.label == info.label, info_to_syntax)
+    if isempty(matches)
+        @warn "Test block \"$(info.label)\" could not be found anymore in $(info.filename); it may have been renamed or removed. Dropping it from the rerun."
+        return nothing
+    elseif length(matches) > 1
+        @warn "Test block \"$(info.label)\" now matches $(length(matches)) blocks in $(info.filename); cannot tell which one to rerun. Dropping it from the rerun."
+        return nothing
+    end
+    blockinfo, syntax_block = only(matches)
+    return build_eval_test(blockinfo, syntax_block, pkg)
 end
 
 """
@@ -267,7 +337,7 @@ function fzf_testblock_from_files(
     fuzzy_testset::AbstractString,
     pkg::PackageSpec,
     root::AbstractString;
-    interactive::Bool=true,
+    interactive::Bool = true,
 )
     # We create  the collection of testsets based on the list of files.
     info_to_syntax, display_to_info = build_info_to_syntax(interfaces, root, matched_files)
@@ -300,13 +370,18 @@ function fzf_testblock(
     interfaces::Vector{<:TestBlockInterface},
     fuzzy_file::AbstractString,
     fuzzy_testset::AbstractString;
-    interactive::Bool=true,
+    interactive::Bool = true,
 )
     pkg = current_pkg()
     root, testfiles = get_testfiles(pkg)
     # We fetch all valid test files.
     matched_files = get_matching_files(fuzzy_file, testfiles)
     fzf_testblock_from_files(
-        interfaces, matched_files, fuzzy_testset, pkg, root; interactive
+        interfaces,
+        matched_files,
+        fuzzy_testset,
+        pkg,
+        root;
+        interactive,
     )
 end

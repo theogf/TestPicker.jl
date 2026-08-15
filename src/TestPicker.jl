@@ -1,5 +1,6 @@
 module TestPicker
 
+using CRC32c: crc32c
 using bat_jll: get_bat_path
 using fzf_jll: fzf
 using JuliaSyntax
@@ -43,11 +44,21 @@ Container for executable test code and its associated metadata.
 
 Combines a Julia expression representing test code with metadata about its source
 and context. Used throughout TestPicker for tracking and executing tests.
+
+`content_hash` is the CRC32c checksum of the source file's contents when `ex` was
+captured, so that a rerun (`test> -`) can detect that the file changed in the meantime
+(a content hash catches edits that a modification time can miss, e.g. on filesystems
+with coarse mtime resolution, or a save that happens to restore the original mtime) and
+try to relocate the block instead of blindly replaying a stale expression; see
+[`refresh_stale_test`](@ref).
 """
 struct EvalTest
     ex::Expr
     info::TestInfo
+    content_hash::UInt32
 end
+
+EvalTest(ex::Expr, info::TestInfo) = EvalTest(ex, info, 0x00000000)
 
 """
     EvalResult{T}
