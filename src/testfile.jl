@@ -17,15 +17,15 @@ function select_testfiles(
     query::AbstractString, pkg::PackageSpec=current_pkg(); interactive::Bool=true
 )
     root, files = get_testfiles(pkg)
-
-    if !interactive
+    # We do a dry lookup to see what results we get.
+    matched_files = readlines(
+        pipeline(
+            Cmd(`$(fzf()) --filter $(query)`; ignorestatus=true);
+            stdin=IOBuffer(join(files, '\n')),
+        ),
+    )
+    if !interactive || isone(length(matched_files))
         # Non-interactive mode: use fzf --filter to get matching files
-        matched_files = readlines(
-            pipeline(
-                Cmd(`$(fzf()) --filter $(query)`; ignorestatus=true);
-                stdin=IOBuffer(join(files, '\n')),
-            ),
-        )
         if isempty(matched_files)
             @debug "Could not find any relevant files with query \"$query\"."
             return (:file, root, String[])
