@@ -64,65 +64,118 @@ function visualize_test_results(
         # We fetch the data from the picked test.
         test, _, text, context = split(picked_val, separator())
 
-        # We try to obtain the stack lines.
-        stack_lines = split(text, '\n')
-        start_stack = findfirst(x -> !isnothing(match(r"^\s*\[\d+\]", x)), stack_lines)
-        # This happens for fail tests that don't have stacktraces.
-        isnothing(start_stack) && continue
-
-        # Some useful dimensions for our preview.
-        dims = get_preview_dimension(terminal)
-        pad = dims.height ÷ 2
-        error = join(vcat(test, stack_lines[1:(start_stack - 2)]), '\n')
-        traces = join.(Iterators.partition(stack_lines[start_stack:end], 2), '\n')
-        pkg_src_dir = isnothing(pkg.path) ? nothing : normpath(joinpath(pkg.path, "src"))
-        pkg_test_dir = isnothing(pkg.path) ? nothing : normpath(joinpath(pkg.path, "test"))
-        enriched = map(traces) do trace
-            path = match(r"(\S+\.jl):(\d+)", trace)
-            if !isnothing(path)
-                file_path, line = remove_ansi.(path.captures)
-                line_int = Base.parse(Int, line)
-                line_start = max(0, line_int - pad)
-                line_end = line_int + pad
-                source_path = Base.find_source_file(expanduser(file_path))
-                display_trace =
-                    if !isnothing(source_path) &&
-                        !isnothing(pkg_src_dir) &&
-                        startswith(normpath(source_path), pkg_src_dir)
-                        "\e[1;34m$(trace)\e[0m"
-                    elseif !isnothing(source_path) &&
-                        !isnothing(pkg_test_dir) &&
-                        startswith(normpath(source_path), pkg_test_dir)
-                        "\e[1;33m$(trace)\e[0m"
-                    else
-                        trace
-                    end
-                join([display_trace, source_path, line, line_start, line_end], separator())
-            else
-                trace
-            end
-        end
-        recut_vals = join(enriched, '\0')
-        bat_preview = "$(get_bat_path()) --line-range {4}:{5} --highlight-line {3} --color=always --terminal-width=$(dims.width) {2}"
-        fzf_args = [
-            "--multi", # Show multiple lines
-            "--read0", # Separate lines with \0
-            "--ansi", # Read ANSI characters
-            "--header", # Show header in text
-            "$(error)",
-            "--with-nth",
-            "{1}",
-            "--preview",
-            bat_preview,
-            "--bind",
-            "ctrl-e:execute($(editor_cmd) {2}:{3})",
-            "-d",
-            separator(),
-        ]
-
-        cmd_stacktrace = `$(fzf()) $(fzf_args)`
-        run(pipeline(Cmd(cmd_stacktrace; ignorestatus=true); stdin=IOBuffer(recut_vals)))
+        # Nothing is shown for fail tests that don't have a stacktrace.
+        visualize_stacktrace(text; title=test, pkg, terminal, editor_cmd)
     end
+end
+
+"""
+    visualize_stacktrace(text::AbstractString; title, pkg, terminal, editor_cmd) -> Bool
+
+Interactive exploration of the stacktrace contained in `text` using `fzf`.
+
+`text` is expected to be the textual representation of an error, i.e. an error message
+optionally followed by a `Stacktrace:` section (the output of `showerror` or
+`Base.display_error`). Every frame is listed as an entry, with a preview of the
+corresponding source file around the relevant line, and `Ctrl+e` opens the source in
+the editor.
+
+`title` is prepended to the error message shown in the `fzf` header, `pkg` (when given)
+is used to highlight the frames pointing to the package `src` (blue) and `test` (yellow)
+directories.
+
+Returns `false` when no stacktrace frame could be found in `text`, `true` otherwise.
+"""
+function visualize_stacktrace(
+    text::AbstractString;
+    title::AbstractString="",
+    pkg::Union{Nothing,PackageSpec}=nothing,
+    terminal::Union{Nothing,Terminals.TextTerminal}=nothing,
+    editor_cmd::Union{Nothing,AbstractString}=nothing,
+)
+    # We try to obtain the stack lines.
+    stack_lines = split(text, '\n')
+    start_stack = findfirst(x -> !isnothing(match(r"^\s*\[\d+\]", x)), stack_lines)
+    isnothing(start_stack) && return false
+
+    # The remaining defaults are only resolved once we know we have something to show.
+    terminal = @something terminal Base.active_repl.t
+    editor_cmd = @something editor_cmd join(editor(), ' ')
+
+    # Some useful dimensions for our preview.
+    dims = get_preview_dimension(terminal)
+    pad = dims.height ÷ 2
+    message = stack_lines[1:(start_stack - 2)]
+    error = join(isempty(title) ? message : vcat(title, message), '\n')
+    traces = join.(group_frames(stack_lines[start_stack:end]), '\n')
+    pkg_path = isnothing(pkg) ? nothing : pkg.path
+    pkg_src_dir = isnothing(pkg_path) ? nothing : normpath(joinpath(pkg_path, "src"))
+    pkg_test_dir = isnothing(pkg_path) ? nothing : normpath(joinpath(pkg_path, "test"))
+    enriched = map(traces) do trace
+        path = match(r"(\S+\.jl):(\d+)", trace)
+        if !isnothing(path)
+            file_path, line = remove_ansi.(path.captures)
+            line_int = Base.parse(Int, line)
+            line_start = max(0, line_int - pad)
+            line_end = line_int + pad
+            source_path = Base.find_source_file(expanduser(file_path))
+            display_trace =
+                if !isnothing(source_path) &&
+                    !isnothing(pkg_src_dir) &&
+                    startswith(normpath(source_path), pkg_src_dir)
+                    "\e[1;34m$(trace)\e[0m"
+                elseif !isnothing(source_path) &&
+                    !isnothing(pkg_test_dir) &&
+                    startswith(normpath(source_path), pkg_test_dir)
+                    "\e[1;33m$(trace)\e[0m"
+                else
+                    trace
+                end
+            join([display_trace, source_path, line, line_start, line_end], separator())
+        else
+            trace
+        end
+    end
+    recut_vals = join(enriched, '\0')
+    bat_preview = "$(get_bat_path()) --line-range {4}:{5} --highlight-line {3} --color=always --terminal-width=$(dims.width) {2}"
+    fzf_args = [
+        "--multi", # Show multiple lines
+        "--read0", # Separate lines with \0
+        "--ansi", # Read ANSI characters
+        "--header", # Show header in text
+        "$(error)",
+        "--with-nth",
+        "{1}",
+        "--preview",
+        bat_preview,
+        "--bind",
+        "ctrl-e:execute($(editor_cmd) {2}:{3})",
+        "-d",
+        separator(),
+    ]
+
+    cmd_stacktrace = `$(fzf()) $(fzf_args)`
+    run(pipeline(Cmd(cmd_stacktrace; ignorestatus=true); stdin=IOBuffer(recut_vals)))
+    return true
+end
+
+"""
+Group the lines of a stacktrace into frames.
+
+A frame starts at a line of the form ` [i] some_call(...)` and holds every line until
+the next one (usually a single ` @ Module path:line` line, but exception chains
+(`caused by:`) or task errors can add more).
+"""
+function group_frames(lines::AbstractVector{<:AbstractString})
+    frames = Vector{eltype(lines)}[]
+    for line in lines
+        if !isnothing(match(r"^\s*\[\d+\]", line)) || isempty(frames)
+            push!(frames, [line])
+        else
+            push!(last(frames), line)
+        end
+    end
+    return frames
 end
 
 "File names come with ansi characters and break stuff..."

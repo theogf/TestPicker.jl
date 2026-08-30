@@ -130,6 +130,34 @@ You can edit the selected test with `Ctrl+e` or inspect the stacktrace for error
 It is also possible to inspect the stacktrace as a list with a preview of the source when possible and
 `Ctrl+e` edit the source of the current trace.
 
+### Inspecting any exception
+
+The stacktrace viewer is not restricted to test results, you can explore the stacktrace of
+any exception with `inspect_error`. Called without argument it picks up the `err` variable,
+i.e. the last exception thrown in the REPL:
+
+```julia-repl
+julia> sqrt(-1)
+ERROR: DomainError with -1.0:
+sqrt was called with a negative real argument but will only return a complex result if called with a complex argument. Try sqrt(Complex(x)).
+Stacktrace:
+[...]
+
+julia> inspect_error()
+```
+
+It also accepts an exception stack, an exception (optionally with its backtrace) or the raw
+text of an error, e.g. `inspect_error(err[1])` or `inspect_error(exception, backtrace)`.
+
+The same viewer is available from test mode with `@e`:
+
+```julia-repl
+test> @e
+```
+
+As for test results, frames pointing to the `src` and `test` directories of the current
+package are highlighted, and `Ctrl+e` opens the source of the selected frame in your editor.
+
 ### Getting help
 
 Type `?` in test mode to see a quick reference of all available commands and features:

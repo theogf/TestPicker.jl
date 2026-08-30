@@ -18,3 +18,6 @@ end
 @safetestset "results_viewer" begin
     include("results_viewer.jl")
 end
+@safetestset "error_inspector" begin
+    include("error_inspector.jl")
+end

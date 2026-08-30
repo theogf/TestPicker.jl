@@ -17,6 +17,9 @@ const HELP_TEXT = Markdown.md"""
 - `test> @` → Inspect test results (errors/failures)
   - Press Enter to view stacktrace
   - Press Ctrl+e to edit test file
+- `test> @e` → Inspect the stacktrace of the last exception thrown in the REPL
+  - Same as calling `inspect_error()` from the julia prompt
+  - Press Ctrl+e to edit the source of the selected frame
 - `test> ?` → Show this help message
 
 ## Fuzzy Selection Mode
