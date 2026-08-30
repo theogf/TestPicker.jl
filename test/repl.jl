@@ -2,6 +2,7 @@ using TestPicker
 using Test
 using TestPicker: create_repl_test_mode, identify_query, print_test_docs, HELP_TEXT
 using TestPicker: TestFileQuery, LatestEval, TestsetQuery, UnmatchedQuery, TestModeDocs
+using TestPicker: InspectResults, InspectError
 using TestPicker: TestModeCompletionProvider
 using REPL: REPL, BasicREPL, LineEdit, Terminals, LineEditREPL, run_repl
 using Markdown
@@ -50,6 +51,9 @@ end
     @test identify_query("foo:a") == (TestsetQuery, ("foo", "a"))
     @test identify_query(":a") == (TestsetQuery, ("", "a"))
     @test identify_query("?") == (TestModeDocs, ())
+    @test identify_query("@") == (InspectResults, ())
+    @test identify_query("@e") == (InspectError, ())
+    @test identify_query(" @e ") == (InspectError, ())
 end
 
 @testset "Help documentation" begin
@@ -67,6 +71,7 @@ end
     @test contains(help_str, "test> -")
     @test contains(help_str, "test> @")
     @test contains(help_str, "test> ?")
+    @test contains(help_str, "test> @e")
 
     # Test that print_test_docs doesn't error
     redirect_stdout(devnull) do

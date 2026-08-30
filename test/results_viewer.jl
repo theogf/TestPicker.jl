@@ -98,3 +98,29 @@ end
     result = TestPicker.truncate_backtrace(fake_bt)
     @test result == fake_bt
 end
+
+@testset "group_frames" begin
+    frames = TestPicker.group_frames([
+        " [1] foo()", "   @ Bar /some/file.jl:1", " [2] baz()", "   @ Bar /some/other.jl:2"
+    ])
+    @test length(frames) == 2
+    @test frames[1] == [" [1] foo()", "   @ Bar /some/file.jl:1"]
+    @test frames[2] == [" [2] baz()", "   @ Bar /some/other.jl:2"]
+
+    # Extra lines (e.g. exception chains) are attached to the frame they follow.
+    frames = TestPicker.group_frames([
+        " [1] foo()", "   @ Bar /some/file.jl:1", "caused by: MethodError"
+    ])
+    @test length(frames) == 1
+    @test last(frames[1]) == "caused by: MethodError"
+
+    # Lines before the first frame are kept in a group of their own.
+    frames = TestPicker.group_frames(["nested task error: boom", " [1] foo()"])
+    @test length(frames) == 2
+    @test frames[1] == ["nested task error: boom"]
+end
+
+@testset "visualize_stacktrace without any frame" begin
+    # Nothing to show, and no terminal/editor is needed to figure that out.
+    @test TestPicker.visualize_stacktrace("ERROR: some error without stacktrace") == false
+end

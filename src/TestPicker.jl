@@ -19,6 +19,7 @@ using TestEnv: TestEnvError, get_test_dir, isinstalled!
 using PrecompileTools
 
 export clear_testenv_cache
+export inspect_error
 export TestBlockInfo
 export TestBlockInterface, add_interface!, replace_interface!
 export TestItemInterface, add_testitem_interface!
@@ -91,6 +92,7 @@ include("testblock.jl")
 include("docs.jl")
 include("repl.jl")
 include("results_viewer.jl")
+include("error_inspector.jl")
 include("precompilation.jl")
 
 """

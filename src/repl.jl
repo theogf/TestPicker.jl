@@ -161,7 +161,7 @@ end
 
 Enumeration of different types of test queries supported by the test REPL mode.
 """
-@enum QueryType TestFileQuery TestsetQuery TestModeDocs LatestEval InspectResults UnmatchedQuery
+@enum QueryType TestFileQuery TestsetQuery TestModeDocs LatestEval InspectResults InspectError UnmatchedQuery
 
 """
     identify_query(input::AbstractString) -> (QueryType, Tuple)
@@ -181,6 +181,8 @@ function identify_query(input::AbstractString)
         end
     elseif strip(input) == "@"
         InspectResults, ()
+    elseif strip(input) == "@e"
+        InspectError, ()
     elseif strip(input) == "?"
         TestModeDocs, ()
     else
@@ -226,6 +228,8 @@ function test_mode_do_cmd(repl::AbstractREPL, input::String)
         print_test_docs()
     elseif test_type == InspectResults
         visualize_test_results(repl)
+    elseif test_type == InspectError
+        inspect_error(; repl)
     else
         error("Query $(input) could not be interpreted.")
     end

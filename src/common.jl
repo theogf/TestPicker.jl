@@ -13,3 +13,17 @@ function current_pkg()
         throw(TestEnvError("trying to activate test environment of an unnamed project"))
     return ctx.env.pkg
 end
+
+"""
+    current_pkg_or_nothing() -> Union{Nothing,PackageSpec}
+
+Same as [`current_pkg`](@ref) but returns `nothing` instead of throwing when the active
+environment is not a package, e.g. when inspecting an error from a plain environment.
+"""
+function current_pkg_or_nothing()
+    return try
+        current_pkg()
+    catch
+        nothing
+    end
+end
