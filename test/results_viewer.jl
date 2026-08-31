@@ -130,16 +130,18 @@ end
 """
 Real `Test` results, as they come out of a run, to build entries from.
 
-The testset has to be the root one for `TestPickerTestSet` to throw rather than report to a
-parent, and `Test` keeps its testset stack in task local storage, so a fresh task gives us
-that whatever testset this file itself runs under.
+The testset has to be the root one for `TestPickerTestSet` to throw rather than report to
+the testset this file itself runs under, hence [`at_testset_root`](@ref).
+
+Its failures are meant to happen, so the report `Test` prints for them is sent to `devnull`
+rather than into the output of the suite running this. Redirecting is what works on every
+supported version: `Test.TESTSET_PRINT_ENABLE` is a `Ref` up to Julia 1.12 and a
+`ScopedValue` from 1.13 on, so it cannot simply be assigned to.
 """
 function failing_results()
-    printing = Test.TESTSET_PRINT_ENABLE[]
-    Test.TESTSET_PRINT_ENABLE[] = false
-    try
-        return fetch(
-            @async try
+    return redirect_stdout(devnull) do
+        at_testset_root() do
+            try
                 @testset TestPickerTestSet "root" begin
                     @testset "inner" begin
                         @test 1 == 2
@@ -152,10 +154,31 @@ function failing_results()
             catch e
                 e isa TestPicker.TestPickerTestSetException ? e.results : rethrow()
             end
-        )
-    finally
-        Test.TESTSET_PRINT_ENABLE[] = printing
+        end
     end
+end
+
+"""
+    at_testset_root(f)
+
+Run `f` as if no `@testset` were currently open, so that a testset it starts is the root
+one.
+
+How `Test` tracks the testset in progress changed in Julia 1.13: it used to live in task
+local storage, which a new task simply did not inherit, and is now held in scoped values,
+which a task started inside the scope *does* inherit. So the escape has to be different on
+either side of that.
+"""
+@static if isdefined(Test, :CURRENT_TESTSET)
+    function at_testset_root(f)
+        return Base.ScopedValues.@with(
+            Test.CURRENT_TESTSET => Test.FallbackTestSet(),
+            Test.TESTSET_DEPTH => 0,
+            f(),
+        )
+    end
+else
+    at_testset_root(f) = fetch(@async f())
 end
 
 @testset "result_entry" begin
