@@ -66,7 +66,6 @@ function eval_in_module(
     testenv_expr = if haskey(TESTENV_CACHE, pkg)
         quote
             $(disable_precompilation_expr)
-            ENV["JULIA_DEBUG"] = "loading"
             import TestPicker: Pkg
             Pkg.activate($(TESTENV_CACHE[pkg]); io=devnull)
         end

@@ -79,3 +79,25 @@ using TestPicker: TestPicker, eval_in_module, current_pkg, EvalTest, TestInfo
     @test nested_result.fail == 1
     @test only(nested_result.results).testset_path == ["inner"]
 end
+
+# The cached-testenv branch used to set `ENV["JULIA_DEBUG"] = "loading"` without ever
+# restoring it, leaking debug logging into the session from the second run on.
+@testset "eval_in_module leaves JULIA_DEBUG alone" begin
+    pkg_spec = PackageSpec(; name="TestPicker", path=pkgdir(TestPicker))
+    # Twice, so that the second run goes through the cached test environment.
+    function run_twice()
+        for _ in 1:2
+            eval_in_module(EvalTest(:(sin(3)), TestInfo("eval.jl", "", 0)), pkg_spec)
+        end
+    end
+
+    withenv("JULIA_DEBUG" => nothing) do
+        run_twice()
+        @test !haskey(ENV, "JULIA_DEBUG")
+    end
+
+    withenv("JULIA_DEBUG" => "Main") do
+        run_twice()
+        @test ENV["JULIA_DEBUG"] == "Main"
+    end
+end
