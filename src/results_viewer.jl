@@ -1,4 +1,15 @@
-const RESULT_PATH = mktempdir()
+@static if isdefined(Base, :OncePerProcess)
+    const RESULT_PATH = OncePerProcess{String}() do
+        mktempdir(; prefix="TestPicker_")
+    end
+else
+    # No `OncePerProcess` before 1.12, so `__init__` fills the reference instead.
+    const RESULT_PATH_REF = Ref{String}()
+    RESULT_PATH() = RESULT_PATH_REF[]
+end
+
+"Directory holding the per-package results files, created once per session, see issue #97."
+RESULT_PATH
 
 "Separator used by `fzf` to distinguish the different data components."
 separator() = "@@@@@"
@@ -282,8 +293,9 @@ function clean_source(source::LineNumberNode)
 end
 
 function pkg_results_path(pkg::PackageSpec)
-    mkpath(RESULT_PATH)
-    return joinpath(RESULT_PATH, pkg.name * " - " * string(pkg.uuid) * ".jsonl")
+    # `mkpath` only guards against a /tmp sweeper removing the directory.
+    path = mkpath(RESULT_PATH())
+    return joinpath(path, pkg.name * " - " * string(pkg.uuid) * ".jsonl")
 end
 
 "This empty the file before appending new results."

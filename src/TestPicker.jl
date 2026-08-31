@@ -138,6 +138,9 @@ Shorthand for `add_interface!(TestItemInterface())`.
 add_testitem_interface!() = add_interface!(TestItemInterface())
 
 function __init__()
+    @static if !isdefined(Base, :OncePerProcess)
+        RESULT_PATH_REF[] = mktempdir(; prefix="TestPicker_")
+    end
     # Add the REPL mode to the current active REPL.
     if isdefined(Base, :active_repl)
         init_test_repl_mode(Base.active_repl)

@@ -1,6 +1,6 @@
 name = "TestPicker"
 uuid = "a64165b9-4409-4de6-85cd-a4e0953bae44"
-version = "2.8.0"
+version = "2.8.1"
 authors = ["theogf <theo.galyfajou@gmail.com> and contributors"]
 
 [deps]
