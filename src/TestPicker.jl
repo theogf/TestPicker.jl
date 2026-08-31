@@ -15,6 +15,8 @@ using Revise: Revise
 using Test
 using TestEnv
 using Markdown
+using JSON
+using Base.StackTraces
 using TestEnv: TestEnvError, get_test_dir, isinstalled!
 using PrecompileTools
 
@@ -84,6 +86,7 @@ through the selection interface again.
 const LATEST_EVAL = Ref{Union{Nothing,Vector{EvalTest}}}(nothing)
 
 include("common.jl")
+include("trace.jl")
 include("testset.jl")
 include("eval.jl")
 include("testfile.jl")

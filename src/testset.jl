@@ -17,27 +17,58 @@ doesn't specify one explicitly, wrapping just the outermost call in
 """
 struct TestPickerTestSet <: Test.AbstractTestSet
     dts::Test.DefaultTestSet
+    traces::Vector{Pair{Test.Error,TraceError}}
 end
 
 function TestPickerTestSet(desc::AbstractString)
     parent = Test.get_testset()
     failfast = parent isa TestPickerTestSet ? parent.dts.failfast : false
-    return TestPickerTestSet(Test.DefaultTestSet(desc; failfast))
+    # Nested testsets share the root's captured traces: `finish` hands the wrapped
+    # `DefaultTestSet` to the parent, so anything stored on a nested wrapper is lost.
+    traces = parent isa TestPickerTestSet ? parent.traces : Pair{Test.Error,TraceError}[]
+    return TestPickerTestSet(Test.DefaultTestSet(desc; failfast), traces)
 end
 
 function Test.record(ts::TestPickerTestSet, args...; kwargs...)
     Test.record(ts.dts, args...; kwargs...)
 end
 
+function Test.record(ts::TestPickerTestSet, res::Test.Error, args...; kwargs...)
+    trace = captured_trace(res)
+    isnothing(trace) || push!(ts.traces, res => trace)
+    return Test.record(ts.dts, res, args...; kwargs...)
+end
+
+"""
+Capture the stacktrace of an errored test from the real backtrace, when it is still
+reachable.
+
+`Test` stringifies the backtrace as it builds a `Test.Error`, so `record` never receives
+the frames themselves. But for an error thrown *outside* of a `@test`, `record` is called
+from within `Test`'s own `catch` block, which means the exception stack of the task is
+still live and `Base.current_exceptions()` hands us the real frames. An error raised
+inside a `@test` is already out of that `catch` by the time `record` runs, and only the
+printed text remains, see [`trace_error`](@ref).
+"""
+function captured_trace(res::Test.Error)
+    res.test_type === :nontest_error || return nothing
+    stack = Base.current_exceptions()
+    isempty(stack) && return nothing
+    return drop_test_frames(truncate_trace(trace_error(stack)))
+end
+
 """
     TestPickerResult
 
 A single failed or errored test, together with the chain of `@testset` descriptions
-(outermost to innermost) it occurred under, not counting TestPicker's own root testset.
+(outermost to innermost) it occurred under, not counting TestPicker's own root testset,
+and the stacktrace captured from the real backtrace when there was one to capture, see
+[`captured_trace`](@ref).
 """
 struct TestPickerResult
     testset_path::Vector{String}
     result::Union{Test.Fail,Test.Error}
+    trace::Union{Nothing,TraceError}
 end
 
 """
@@ -65,16 +96,26 @@ function Base.showerror(io::IO, ex::TestPickerTestSetException, bt; backtrace=tr
 end
 
 "Recursively collect failed/errored tests from a testset tree, tracking the `@testset` path to each."
-function collect_results(ts::Test.DefaultTestSet, path::Vector{String}=String[])
+function collect_results(
+    ts::Test.DefaultTestSet,
+    traces::Vector{Pair{Test.Error,TraceError}},
+    path::Vector{String}=String[],
+)
     results = TestPickerResult[]
     for t in ts.results
         if t isa Test.DefaultTestSet
-            append!(results, collect_results(t, [path; t.description]))
+            append!(results, collect_results(t, traces, [path; t.description]))
         elseif t isa Union{Test.Fail,Test.Error}
-            push!(results, TestPickerResult(path, t))
+            push!(results, TestPickerResult(path, t, trace_of(traces, t)))
         end
     end
     return results
+end
+
+"The trace captured for a given result while it was recorded, if any."
+function trace_of(traces::Vector{Pair{Test.Error,TraceError}}, result)
+    idx = findfirst(((recorded, _),) -> recorded === result, traces)
+    return isnothing(idx) ? nothing : last(traces[idx])
 end
 
 """
@@ -118,7 +159,11 @@ function Test.finish(ts::TestPickerTestSet; print_results::Bool=Test.TESTSET_PRI
     if total != total_pass + total_broken
         throw(
             TestPickerTestSetException(
-                total_pass, total_fail, total_error, total_broken, collect_results(dts)
+                total_pass,
+                total_fail,
+                total_error,
+                total_broken,
+                collect_results(dts, ts.traces),
             ),
         )
     end

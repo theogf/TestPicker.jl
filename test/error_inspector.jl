@@ -1,28 +1,23 @@
 using Test
 using TestPicker
-using TestPicker: error_text, last_exception, inspect_error
+using TestPicker: trace_error, last_exception, inspect_error
 
-@testset "error_text" begin
+@testset "inspect_error keeps the real backtrace" begin
     stack = try
         sqrt(-1)
     catch
         Base.current_exceptions()
     end
-    text = TestPicker.remove_ansi(error_text(stack))
-    @test contains(text, "DomainError")
-    @test contains(text, "Stacktrace:")
-    # The frames are formatted the way the stacktrace viewer expects them.
-    @test !isnothing(match(r"^\s*\[1\]"m, text))
+    # The exception never goes through text: the frames reach the viewer as they are.
+    trace = TestPicker.trace_error(stack)
+    @test contains(TestPicker.remove_ansi(trace.header), "DomainError")
+    @test !isempty(trace.frames)
+    @test first(trace.frames).func == "throw_complex_domainerror"
 
     exception, backtrace = stack[1]
-    text = TestPicker.remove_ansi(error_text(exception, backtrace))
-    @test contains(text, "DomainError")
-    @test contains(text, "Stacktrace:")
-
-    # Without backtrace we only get the error message.
-    text = TestPicker.remove_ansi(error_text(exception, []))
-    @test contains(text, "DomainError")
-    @test !contains(text, "Stacktrace:")
+    @test TestPicker.trace_error(exception, backtrace).frames == trace.frames
+    # Without a backtrace there is nothing to explore, only a message.
+    @test isempty(TestPicker.trace_error(exception, nothing).frames)
 end
 
 @testset "last_exception" begin

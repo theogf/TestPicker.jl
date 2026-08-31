@@ -9,7 +9,11 @@ results, see [`visualize_stacktrace`](@ref).
   what is used when `inspect_error` is called without argument),
 - a `(; exception, backtrace)` entry of such a stack,
 - an exception, optionally followed by its backtrace,
-- the raw text of an error, as printed in the REPL.
+- the raw text of an error, as printed in the REPL,
+- a [`TraceError`](@ref) built beforehand.
+
+The first three keep the real backtrace all the way to the viewer; only the text form has
+to be parsed back, see [`trace_error`](@ref).
 
 # Examples
 
@@ -24,23 +28,25 @@ julia> inspect_error()  # equivalent to `inspect_error(err)`
 The same viewer is reachable from test mode with `test> @e`.
 """
 function inspect_error(
-    text::AbstractString;
+    trace::TraceError;
     pkg::Union{Nothing,PackageSpec}=current_pkg_or_nothing(),
     repl::Union{Nothing,AbstractREPL}=nothing,
     kwargs...,
 )
     terminal = isnothing(repl) ? nothing : repl.t
-    found = visualize_stacktrace(text; pkg, terminal, kwargs...)
-    found || @warn "No stacktrace could be found in the given error:\n$(text)"
+    found = visualize_stacktrace(drop_test_frames(trace); pkg, terminal, kwargs...)
+    found || @warn "No stacktrace could be found in the given error:\n$(trace.header)"
     return nothing
 end
+
+inspect_error(text::AbstractString; kwargs...) = inspect_error(trace_error(text); kwargs...)
 
 function inspect_error(stack::Base.ExceptionStack; kwargs...)
     if isempty(stack)
         @warn "The given exception stack is empty."
         return nothing
     end
-    return inspect_error(error_text(stack); kwargs...)
+    return inspect_error(trace_error(stack); kwargs...)
 end
 
 function inspect_error(entry::NamedTuple{(:exception, :backtrace)}; kwargs...)
@@ -48,7 +54,7 @@ function inspect_error(entry::NamedTuple{(:exception, :backtrace)}; kwargs...)
 end
 
 function inspect_error(exception::Exception, backtrace=[]; kwargs...)
-    return inspect_error(error_text(exception, backtrace); kwargs...)
+    return inspect_error(trace_error(exception, backtrace); kwargs...)
 end
 
 function inspect_error(; kwargs...)
@@ -71,12 +77,4 @@ function last_exception()
     err = getglobal(Main, :err)
     (isnothing(err) || (err isa Base.ExceptionStack && isempty(err))) && return nothing
     return err
-end
-
-"Textual representation of an error (and its backtrace), as printed in the REPL."
-error_text(stack::Base.ExceptionStack) = sprint_error(stack)
-error_text(exception, backtrace) = sprint_error(exception, backtrace)
-
-function sprint_error(args...)
-    sprint(Base.display_error, args...; context=(:color => true, :limit => true))
 end

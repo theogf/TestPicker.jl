@@ -1,5 +1,7 @@
 using Test
 using TestPicker
+using TestPicker: TestPickerTestSet
+using JSON
 
 @testset "truncate_backtrace" begin
     fake_bt = """
@@ -123,4 +125,107 @@ end
 @testset "visualize_stacktrace without any frame" begin
     # Nothing to show, and no terminal/editor is needed to figure that out.
     @test TestPicker.visualize_stacktrace("ERROR: some error without stacktrace") == false
+end
+
+"""
+Real `Test` results, as they come out of a run, to build entries from.
+
+The testset has to be the root one for `TestPickerTestSet` to throw rather than report to
+the testset this file itself runs under, hence [`at_testset_root`](@ref).
+
+Its failures are meant to happen, so the report `Test` prints for them is sent to `devnull`
+rather than into the output of the suite running this. Redirecting is what works on every
+supported version: `Test.TESTSET_PRINT_ENABLE` is a `Ref` up to Julia 1.12 and a
+`ScopedValue` from 1.13 on, so it cannot simply be assigned to.
+"""
+function failing_results()
+    return redirect_stdout(devnull) do
+        at_testset_root() do
+            try
+                @testset TestPickerTestSet "root" begin
+                    @testset "inner" begin
+                        @test 1 == 2
+                        @test false
+                        @test sqrt(-1) == 1
+                    end
+                    sqrt(-1)
+                end
+                error("the testset was expected to fail")
+            catch e
+                e isa TestPicker.TestPickerTestSetException ? e.results : rethrow()
+            end
+        end
+    end
+end
+
+"""
+    at_testset_root(f)
+
+Run `f` as if no `@testset` were currently open, so that a testset it starts is the root
+one.
+
+How `Test` tracks the testset in progress changed in Julia 1.13: it used to live in task
+local storage, which a new task simply did not inherit, and is now held in scoped values,
+which a task started inside the scope *does* inherit. So the escape has to be different on
+either side of that.
+"""
+@static if isdefined(Test, :CURRENT_TESTSET)
+    function at_testset_root(f)
+        return Base.ScopedValues.@with(
+            Test.CURRENT_TESTSET => Test.FallbackTestSet(),
+            Test.TESTSET_DEPTH => 0,
+            f(),
+        )
+    end
+else
+    at_testset_root(f) = fetch(@async f())
+end
+
+@testset "result_entry" begin
+    results = failing_results()
+    info = TestPicker.TestInfo("sandbox.jl", "block", 1)
+    entries = [
+        TestPicker.result_entry(r.result, info, r.testset_path, r.trace) for r in results
+    ]
+    @test length(entries) == 4
+
+    # A failure has no stacktrace to show, and its preview stays a `String` even when
+    # `Test.Fail.data` is `nothing`.
+    fails = filter(e -> isnothing(e.trace), entries)
+    @test length(fails) == 2
+    @test all(e -> e.preview isa String, fails)
+    @test all(e -> contains(e.context, "inner"), fails)
+
+    # An error inside a `@test` only leaves the printed text behind, one outside of it
+    # keeps the real frames, which carry the function names the text does not have.
+    errors = filter(e -> !isnothing(e.trace), entries)
+    @test length(errors) == 2
+    from_text, from_backtrace = errors
+    @test !isempty(from_text.trace.frames)
+    @test all(!isnothing(f.file) && isfile(f.file) for f in from_text.trace.frames)
+    @test !isempty(from_backtrace.trace.frames)
+    @test first(from_backtrace.trace.frames).func == "throw_complex_domainerror"
+    # TestPicker's own frames are cut from what it captured itself.
+    @test !any(TestPicker.is_testpicker_frame(f) for f in from_backtrace.trace.frames)
+end
+
+@testset "results file round trip" begin
+    results = failing_results()
+    info = TestPicker.TestInfo("sandbox.jl", "block", 1)
+    entries = [
+        TestPicker.result_entry(r.result, info, r.testset_path, r.trace) for r in results
+    ]
+    path = joinpath(mktempdir(), "results.jsonl")
+    TestPicker.write_results(path, entries)
+    # A second run appends to the first one's results.
+    TestPicker.write_results(path, entries)
+    back = [
+        JSON.parse(line, TestPicker.TestResultEntry) for
+        line in eachline(path) if !isempty(line)
+    ]
+    @test length(back) == 2 * length(entries)
+    @test [e.list_view for e in back[1:length(entries)]] == [e.list_view for e in entries]
+    @test isnothing(back[1].trace) == isnothing(entries[1].trace)
+    traced = findfirst(e -> !isnothing(e.trace), back)
+    @test back[traced].trace.frames == entries[traced].trace.frames
 end
