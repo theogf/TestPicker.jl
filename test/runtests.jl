@@ -15,6 +15,9 @@ end
 @safetestset "repl" begin
     include("repl.jl")
 end
+@safetestset "trace" begin
+    include("trace.jl")
+end
 @safetestset "results_viewer" begin
     include("results_viewer.jl")
 end

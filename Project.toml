@@ -1,12 +1,12 @@
 name = "TestPicker"
 uuid = "a64165b9-4409-4de6-85cd-a4e0953bae44"
-authors = ["theogf <theo.galyfajou@gmail.com> and contributors"]
 version = "2.8.0"
-
+authors = ["theogf <theo.galyfajou@gmail.com> and contributors"]
 
 [deps]
 CRC32c = "8bf52ea8-c179-5cab-976a-9e18b702a9bc"
 InteractiveUtils = "b77e0a4c-d291-57a0-90e8-8db25a27a240"
+JSON = "682c06a0-de6a-54ab-a142-c8b1cf79cde6"
 JuliaSyntax = "70703baa-626e-46a2-a12c-08ffd08c73b4"
 Markdown = "d6f4376e-aef5-505a-96c1-9c027394607a"
 Pkg = "44cfe95a-1eb2-52ea-b672-e2afdf69b78f"
@@ -21,6 +21,7 @@ fzf_jll = "214eeab7-80f7-51ab-84ad-2988db7cef09"
 [compat]
 CRC32c = "1"
 InteractiveUtils = "1"
+JSON = "1"
 JuliaSyntax = "0.4, 1"
 Markdown = "1"
 Pkg = "1"
