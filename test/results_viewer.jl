@@ -229,3 +229,14 @@ end
     traced = findfirst(e -> !isnothing(e.trace), back)
     @test back[traced].trace.frames == entries[traced].trace.frames
 end
+
+@testset "RESULT_PATH" begin
+    path = TestPicker.RESULT_PATH()
+    @test path isa String
+    @test isdir(path)
+    @test TestPicker.RESULT_PATH() == path
+    @test all(==(path), fetch.([Threads.@spawn TestPicker.RESULT_PATH() for _ in 1:8]))
+    @test startswith(basename(path), "TestPicker_")
+    @test dirname(TestPicker.pkg_results_path(TestPicker.current_pkg())) == path
+end
+
