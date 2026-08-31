@@ -54,7 +54,7 @@ function captured_trace(res::Test.Error)
     res.test_type === :nontest_error || return nothing
     stack = Base.current_exceptions()
     isempty(stack) && return nothing
-    return clean_trace(truncate_trace(trace_error(stack)))
+    return drop_test_frames(truncate_trace(trace_error(stack)))
 end
 
 """

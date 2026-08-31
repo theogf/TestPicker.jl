@@ -7,9 +7,8 @@ errors TestPicker can display.
 `text` is what the picker shows for the frame (it may carry ANSI codes, and usually spans
 the two lines Julia prints per frame), while the other fields are the structured data the
 preview and the editor binding need. `file` is the path as resolved by
-[`Base.find_source_file`](@ref), i.e. an absolute path that actually exists, or `nothing`
-when the frame has no source we can open (`REPL[1]`, `none:0`, C frames...). `line` is `0`
-in that case.
+`Base.find_source_file`, i.e. an absolute path, or `nothing` when the frame has no source
+we can open (`REPL[1]`, `none:0`, C frames...). `line` is `0` in that case.
 
 Frames come either from a real backtrace ([`trace_error`](@ref) on an exception) or from
 parsing printed stacktrace text ([`trace_error`](@ref) on a `String`), and are serialized
@@ -244,66 +243,6 @@ function is_testpicker_frame(frame::TraceFrame)
 end
 
 testpicker_src_dir() = normpath(joinpath(pkgdir(@__MODULE__), "src"))
-
-"""
-    clean_trace(trace::TraceError) -> TraceError
-
-Make a trace say what actually happened: [`repair_toplevel_lines`](@ref) fixes the source
-lines Julia mis-attributes inside macros, and the frames of `Test` itself are dropped the
-way [`truncate_trace`](@ref) drops TestPicker's own.
-"""
-clean_trace(trace::TraceError) = drop_test_frames(repair_toplevel_lines(trace))
-
-"""
-    repair_toplevel_lines(trace::TraceError) -> TraceError
-
-Point the `top-level scope` frames at the line they actually failed on.
-
-Julia only advances the line of a top-level scope on statements that survive inlining, so
-inside a `@testset` the scope frame reports the last plain statement before the failure
-(`a = 2`) rather than the failure itself. The real line is in the trace already: it is
-carried by the `[inlined]` macro expansion frames that follow, which record where each
-macro was invoked. The last of those pointing at the same file is the innermost invocation,
-i.e. the statement that failed.
-
-Only `top-level scope` frames are touched, and only from the run of inlined frames directly
-below them, so a frame that legitimately reports its own line (the body of a function
-defined in the same file, say) is left alone.
-"""
-function repair_toplevel_lines(trace::TraceError)
-    frames = copy(trace.frames)
-    for (i, frame) in enumerate(frames)
-        frame.func == "top-level scope" || continue
-        isnothing(frame.file) && continue
-        line = inlined_line(frames, i, frame.file)
-        (isnothing(line) || line == frame.line) && continue
-        frames[i] = with_line(frame, line)
-    end
-    return TraceError(trace.header, frames)
-end
-
-"""
-Line of the last frame of `file` in the run of inlined frames right after index `i`, i.e.
-the innermost macro invocation the scope at `i` was expanded from.
-"""
-function inlined_line(frames::AbstractVector{TraceFrame}, i::Int, file::AbstractString)
-    line = nothing
-    for j in (i + 1):length(frames)
-        frames[j].inlined || break
-        frames[j].file == file && (line = frames[j].line)
-    end
-    return line
-end
-
-"The same frame, reporting `line` as its source line."
-function with_line(frame::TraceFrame, line::Int)
-    lines = split(frame.text, '\n')
-    # The location is on the last line of a frame, as `@ Module path/to/file.jl:42`.
-    lines[end] = replace(lines[end], r":\d+" => ":$(line)"; count=1)
-    return TraceFrame(
-        join(lines, '\n'), frame.file, line, frame.func, frame.mod, frame.inlined
-    )
-end
 
 """
     drop_test_frames(trace::TraceError) -> TraceError

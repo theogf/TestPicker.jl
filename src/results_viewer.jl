@@ -260,7 +260,7 @@ end
 "Stacktrace of a result as recovered from the text `Test` stored, if it has one."
 result_trace(::Test.Fail) = nothing
 function result_trace(result::Test.Error)
-    return clean_trace(trace_error(truncate_backtrace(string(result.backtrace))))
+    return drop_test_frames(trace_error(truncate_backtrace(string(result.backtrace))))
 end
 
 "We connect the error with the backtrace to be previewed."

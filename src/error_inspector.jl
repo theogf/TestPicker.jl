@@ -34,7 +34,7 @@ function inspect_error(
     kwargs...,
 )
     terminal = isnothing(repl) ? nothing : repl.t
-    found = visualize_stacktrace(clean_trace(trace); pkg, terminal, kwargs...)
+    found = visualize_stacktrace(drop_test_frames(trace); pkg, terminal, kwargs...)
     found || @warn "No stacktrace could be found in the given error:\n$(trace.header)"
     return nothing
 end

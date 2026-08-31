@@ -157,64 +157,6 @@ end
     @test f("not a frame") == ""
 end
 
-@testset "repair_toplevel_lines" begin
-    file = "/tmp/tests.jl"
-    frame(func, line; inlined=false, f=file) = TraceFrame(
-        " [x] $(func)\n   @ Main $(something(f, "?")):$(line)",
-        f,
-        line,
-        func,
-        nothing,
-        inlined,
-    )
-
-    # The scope reports the last plain statement, the inlined macro frames the real line.
-    frames = [
-        frame("top-level scope", 4),
-        frame("macro expansion", 1777; inlined=true, f="/julia/Test.jl"),
-        frame("macro expansion", 6; inlined=true),
-    ]
-    repaired = TestPicker.repair_toplevel_lines(TraceError("boom", frames))
-    @test first(repaired.frames).line == 6
-    # The text follows, so the picker and the preview agree.
-    @test contains(first(repaired.frames).text, "$(file):6")
-    @test !contains(first(repaired.frames).text, "$(file):4")
-    # The frames it was recovered from are untouched.
-    @test last(repaired.frames).line == 6
-
-    # The innermost invocation wins when the macros nest.
-    frames = [
-        frame("top-level scope", 4),
-        frame("macro expansion", 6; inlined=true),
-        frame("macro expansion", 7; inlined=true),
-    ]
-    @test first(TestPicker.repair_toplevel_lines(TraceError("boom", frames)).frames).line ==
-        7
-
-    # A function defined in the same file reports its own line and must be left alone.
-    frames = [
-        frame("g", 2),
-        frame("top-level scope", 4),
-        frame("macro expansion", 5; inlined=true),
-    ]
-    repaired = TestPicker.repair_toplevel_lines(TraceError("boom", frames)).frames
-    @test [f.line for f in repaired] == [2, 5, 5]
-
-    # Nothing to recover from: the run of inlined frames stops before any same-file frame.
-    frames = [
-        frame("top-level scope", 4),
-        frame("f", 9),
-        frame("macro expansion", 6; inlined=true),
-    ]
-    @test first(TestPicker.repair_toplevel_lines(TraceError("boom", frames)).frames).line ==
-        4
-
-    # A scope with no source at all is left as it is.
-    frames = [frame("top-level scope", 1; f=nothing)]
-    @test first(TestPicker.repair_toplevel_lines(TraceError("boom", frames)).frames).line ==
-        1
-end
-
 @testset "drop_test_frames" begin
     keep = TraceFrame(" [1] f", "/home/me/pkg/test/runtests.jl", 3, "f", nothing, false)
     stdlib = TraceFrame(
