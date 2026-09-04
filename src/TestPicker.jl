@@ -48,6 +48,10 @@ Container for executable test code and its associated metadata.
 Combines a Julia expression representing test code with metadata about its source
 and context. Used throughout TestPicker for tracking and executing tests.
 
+`pkg` is the package the test belongs to, and whose test environment `ex` is evaluated in:
+a selection may span several packages when the active environment is a workspace, so each
+test carries its own rather than relying on whatever is active at evaluation time.
+
 `content_hash` is the CRC32c checksum of the source file's contents when `ex` was
 captured, so that a rerun (`test> -`) can detect that the file changed in the meantime
 (a content hash catches edits that a modification time can miss, e.g. on filesystems
@@ -58,10 +62,13 @@ try to relocate the block instead of blindly replaying a stale expression; see
 struct EvalTest
     ex::Expr
     info::TestInfo
+    pkg::PackageSpec
     content_hash::UInt32
 end
 
-EvalTest(ex::Expr, info::TestInfo) = EvalTest(ex, info, 0x00000000)
+function EvalTest(ex::Expr, info::TestInfo, pkg::PackageSpec)
+    return EvalTest(ex, info, pkg, 0x00000000)
+end
 
 """
     EvalResult{T}
@@ -86,6 +93,7 @@ through the selection interface again.
 const LATEST_EVAL = Ref{Union{Nothing,Vector{EvalTest}}}(nothing)
 
 include("common.jl")
+include("workspace.jl")
 include("trace.jl")
 include("testset.jl")
 include("eval.jl")
