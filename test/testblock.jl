@@ -1,13 +1,14 @@
 using Test
 using JuliaSyntax
+using Pkg
 using Pkg.Types: PackageSpec
 using TestPicker
-using TestPicker: TestBlockInfo, StdTestset, SyntaxBlock, EvalResult
+using TestPicker: TestBlockInfo, StdTestset, SyntaxBlock, EvalResult, TestFile
 using TestPicker:
     get_syntax_blocks,
     get_testfiles,
     get_matching_files,
-    build_info_to_syntax,
+    build_testblocks,
     pick_testblock,
     istestblock,
     fzf_testblock,
@@ -52,26 +53,63 @@ end
     @test isempty(matched_files)
 end
 
+@testset "Matching test files of several packages" begin
+    pkg = PackageSpec(; name="TestPicker", path=pkgdir(TestPicker))
+    other = PackageSpec(; name="Other", path=pkgdir(TestPicker))
+    root = joinpath(pkgdir(TestPicker), "test")
+    files = [
+        TestFile(pkg, root, "sandbox/test-a.jl", "TestPicker/sandbox/test-a.jl"),
+        TestFile(other, root, "sandbox/test-a.jl", "Other/sandbox/test-a.jl"),
+    ]
+    # A query naming the package only keeps the files of that package.
+    matched = get_matching_files("Other/test-a", files)
+    @test only(matched).pkg == other
+    @test length(get_matching_files("test-a", files)) == 2
+end
+
 @testset "Build test block maps" begin
+    pkg = PackageSpec(; name="TestPicker", path=pkgdir(TestPicker))
     root = joinpath(pkgdir(TestPicker), "test", "sandbox")
-    file = "test-a.jl"
+    file = TestFile(pkg, root, "test-a.jl")
     interfaces = [StdTestset()]
-    full_map, tabled_keys = build_info_to_syntax(interfaces, root, [file])
-    @test length(full_map) == length(tabled_keys)
-    @test only(keys(full_map)) == TestBlockInfo("I am a testset", file, 3, 7)
-    syntax_block = only(values(full_map))
+    entries = build_testblocks(interfaces, [file], root)
+    entry = only(values(entries))
+    @test entry.info == TestBlockInfo("I am a testset", file.name, 3, 7)
+    @test entry.file == file
+    # The record shows the block and points the preview at the file and its line range.
+    record = split(only(keys(entries)), TestPicker.separator())
+    @test contains(record[1], "I am a testset")
+    @test record[2] == file.name
+    @test record[3] == "3"
+    @test record[4] == "7"
+    syntax_block = entry.block
     @test syntax_block isa SyntaxBlock
     string_version = string(Base.remove_linenums!(Expr(syntax_block.testblock)))
     stripped_lines = strip.(split(string_version, '\n'))
     @test first(stripped_lines) ==
-        """#= $(joinpath(root, file)):3 =# @testset "I am a testset" begin"""
-    @test stripped_lines[2] == """#= $(joinpath(root, file)):4 =# @test true"""
+        """#= $(joinpath(root, file.name)):3 =# @testset "I am a testset" begin"""
+    @test stripped_lines[2] == """#= $(joinpath(root, file.name)):4 =# @test true"""
     @test Expr(only(syntax_block.preamble)) == :(using Test)
 
-    file = "test-b.jl"
-    full_map, tabled_keys = build_info_to_syntax(interfaces, root, [file])
-    testinfo = only(keys(full_map))
-    @test testinfo == TestBlockInfo("Challenge for JuliaSyntax", file, 1, 6)
+    file = TestFile(pkg, root, "test-b.jl")
+    entries = build_testblocks(interfaces, [file], root)
+    @test only(values(entries)).info ==
+        TestBlockInfo("Challenge for JuliaSyntax", file.name, 1, 6)
+end
+
+@testset "Test blocks of several packages stay apart" begin
+    # Two packages of a workspace can hold blocks that only differ by the package they
+    # belong to; the picker must still offer both.
+    pkg = PackageSpec(; name="TestPicker", path=pkgdir(TestPicker))
+    other = PackageSpec(; name="Other", path=pkgdir(TestPicker))
+    root = joinpath(pkgdir(TestPicker), "test", "sandbox")
+    files = [
+        TestFile(pkg, root, "test-a.jl", "TestPicker/test-a.jl"),
+        TestFile(other, root, "test-a.jl", "Other/test-a.jl"),
+    ]
+    entries = build_testblocks([StdTestset()], files, root)
+    @test length(entries) == 2
+    @test issetequal([entry.file.pkg for entry in values(entries)], [pkg, other])
 end
 
 @testset "Nested testsets fetching" begin
@@ -118,41 +156,46 @@ end"""
 end
 
 @testset "Non-interactive testblock selection" begin
+    pkg = PackageSpec(; name="TestPicker", path=pkgdir(TestPicker))
     root = joinpath(pkgdir(TestPicker), "test", "sandbox")
-    file = "test-a.jl"
     interfaces = [StdTestset()]
-    full_map, tabled_keys = build_info_to_syntax(interfaces, root, [file])
+    entries = build_testblocks(interfaces, [TestFile(pkg, root, "test-a.jl")], root)
 
     # Test selecting syntax_blocks with a query that matches
-    choices = pick_testblock(tabled_keys, "testset", root; interactive=false)
+    choices = pick_testblock(entries, "testset", root; interactive=false)
     @test !isempty(choices)
     @test length(choices) == 1  # Only one testset in test-a.jl
 
     # Test selecting syntax_blocks with a query that doesn't match
-    choices = pick_testblock(tabled_keys, "nonexistent", root; interactive=false)
+    choices = pick_testblock(entries, "nonexistent", root; interactive=false)
     @test isempty(choices)
 
     # Test with multiple files and nested testsets
     root_subdir = joinpath(pkgdir(TestPicker), "test", "sandbox", "test-subdir")
-    file_c = "test-file-c.jl"
-    full_map_c, tabled_keys_c = build_info_to_syntax(interfaces, root_subdir, [file_c])
+    entries_c = build_testblocks(
+        interfaces, [TestFile(pkg, root_subdir, "test-file-c.jl")], root_subdir
+    )
 
     # Should match both "First level" testsets
-    choices = pick_testblock(tabled_keys_c, "First", root_subdir; interactive=false)
+    choices = pick_testblock(entries_c, "First", root_subdir; interactive=false)
     @test length(choices) == 2  # "First level" and "First level - B"
 
     # Should match only "Second level" testset
-    choices = pick_testblock(tabled_keys_c, "Second", root_subdir; interactive=false)
+    choices = pick_testblock(entries_c, "Second", root_subdir; interactive=false)
     @test length(choices) == 1
 end
 
 @testset "fzf_testblock return type" begin
     interfaces = [StdTestset()]
 
-    # Test that fzf_testblock returns a vector when syntax_blocks match
-    result = fzf_testblock(interfaces, "test-a", "testset"; interactive=false)
-    @test result isa Vector
-    @test all(r -> r isa EvalResult, result)
+    # `fzf_testblock` picks its packages from the active environment, which under
+    # `Pkg.test` is the sandbox test environment rather than the package itself.
+    Pkg.activate(pkgdir(TestPicker)) do
+        # Test that fzf_testblock returns a vector when syntax_blocks match
+        result = fzf_testblock(interfaces, "test-a", "testset"; interactive=false)
+        @test result isa Vector
+        @test all(r -> r isa EvalResult, result)
+    end
 end
 
 @testset "Refreshing stale reruns" begin
@@ -162,8 +205,8 @@ end
     root = joinpath(pkgdir(TestPicker), "test")
     pkg = PackageSpec(; name="TestPicker", path=pkgdir(TestPicker))
     interfaces = [StdTestset()]
-    file = "sandbox/test-rerun-tmp.jl"
-    path = joinpath(root, file)
+    file = TestFile(pkg, root, "sandbox/test-rerun-tmp.jl")
+    path = abspath(file)
 
     write(
         path,
@@ -176,13 +219,14 @@ end
         """,
     )
     try
-        full_map, tabled_keys = build_info_to_syntax(interfaces, root, [file])
-        choices = pick_testblock(tabled_keys, "rerun target", root; interactive=false)
-        test = only(testblock_list(choices, full_map, tabled_keys, pkg))
+        entries = build_testblocks(interfaces, [file], root)
+        choices = pick_testblock(entries, "rerun target", root; interactive=false)
+        test = only(testblock_list(choices, entries))
         @test test.info.line == 3
+        @test test.pkg == pkg
 
         # Unmodified file: the exact same test is returned untouched.
-        @test refresh_stale_test(test, pkg) === test
+        @test refresh_stale_test(test) === test
 
         # Modify the file so the same block now starts further down.
         write(
@@ -198,7 +242,7 @@ end
             """,
         )
 
-        refreshed = refresh_stale_test(test, pkg)
+        refreshed = refresh_stale_test(test)
         @test refreshed !== test
         @test refreshed.info.line == 5
         @test refreshed.info.label == "rerun target"
@@ -219,19 +263,19 @@ end
             end
             """,
         )
-        @test_logs (:warn,) match_mode = :any refresh_stale_test(refreshed, pkg)
-        @test isnothing(refresh_stale_test(refreshed, pkg))
+        @test_logs (:warn,) match_mode = :any refresh_stale_test(refreshed)
+        @test isnothing(refresh_stale_test(refreshed))
 
         # If the block can no longer be found, it's dropped too, instead of rerunning
         # outdated code.
         write(path, "using Test\n")
-        @test_logs (:warn,) match_mode = :any refresh_stale_test(refreshed, pkg)
-        @test isnothing(refresh_stale_test(refreshed, pkg))
+        @test_logs (:warn,) match_mode = :any refresh_stale_test(refreshed)
+        @test isnothing(refresh_stale_test(refreshed))
 
         # If the file itself disappears, same thing.
         rm(path)
-        @test_logs (:warn,) match_mode = :any refresh_stale_test(refreshed, pkg)
-        @test isnothing(refresh_stale_test(refreshed, pkg))
+        @test_logs (:warn,) match_mode = :any refresh_stale_test(refreshed)
+        @test isnothing(refresh_stale_test(refreshed))
     finally
         rm(path; force=true)
     end

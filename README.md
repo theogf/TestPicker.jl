@@ -70,7 +70,7 @@ which will get you a fuzzy search, press enter and the file will be run under th
 The test mode supports **Tab completion** on test file names for convenience.
 
 ```julia-repl
-[ Info: Executing test file /home/theo/.julia/dev/TestPicker/test/test-subdir/test-file-c.jl
+[ Info: Executing test file test-subdir/test-file-c.jl in the test environment of TestPicker
 ```
 
 Once executed, your original environment will be restored.
@@ -98,6 +98,33 @@ which will give you e.g. the following selection
 
 Similarly to the multiple files, you can select multiple testsets to be run and they will be run independently.
 
+### Working in a workspace
+
+Julia 1.12 lets a project gather several projects sharing a single manifest, a
+[workspace](https://pkgdocs.julialang.org/v1/toml-files/#The-[workspace]-section):
+
+```toml
+# Project.toml at the root of the repository
+[workspace]
+projects = ["PkgA", "PkgB", "PkgA/docs"]
+```
+
+Whenever the active environment belongs to a workspace, `TestPicker` looks for tests in
+every package of that workspace, not just the active one. It works the same from the
+workspace root, which is usually no package at all, as from any of its members.
+
+Files and test blocks are then listed under the name of the package they belong to, so a
+query can narrow down to a single package:
+
+```
+"I am a testset"  |    PkgA/test-a.jl:3
+"I am a testset"  |    PkgB/test-a.jl:12
+```
+
+Each selection is run in the test environment of its own package, so a single run may span
+several packages, and the failures of all of them are gathered in the same `test> @` view.
+Packages of the workspace that have no `test` directory are simply left out.
+
 ### Running other test blocks than `@testset`
 
 You have the option to add any macro that follows the `@testset` syntax (e.g. `@testitem` from [`TestItems.jl`](https://github.com/julia-vscode/TestItems.jl)) by adding your own test interface.
@@ -111,14 +138,14 @@ After running a collection of test files and/or testsets you can just repeat the
 
 ```julia-repl
 test> test-a
-[ Info: Executing test file /home/theo/.julia/dev/TestPicker/test/sandbox/test-a.jl
-Test Summary:                                                        | Pass  Total  Time
-TestPicker - /home/theo/.julia/dev/TestPicker/test/sandbox/test-a.jl |    1      1  0.0s
+[ Info: Executing test file sandbox/test-a.jl in the test environment of TestPicker
+Test Summary:                    | Pass  Total  Time
+TestPicker - sandbox/test-a.jl   |    1      1  0.0s
 
 test> -
-[ Info: Executing test file /home/theo/.julia/dev/TestPicker/test/sandbox/test-a.jl
-Test Summary:                                                        | Pass  Total  Time
-TestPicker - /home/theo/.julia/dev/TestPicker/test/sandbox/test-a.jl |    1      1  0.0s
+[ Info: Executing test file sandbox/test-a.jl in the test environment of TestPicker
+Test Summary:                    | Pass  Total  Time
+TestPicker - sandbox/test-a.jl   |    1      1  0.0s
 ```
 
 ### Inspecting test results

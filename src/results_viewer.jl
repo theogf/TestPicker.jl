@@ -41,20 +41,40 @@ function get_preview_dimension(terminal::Terminals.TextTerminal=Base.active_repl
 end
 
 """
-    visualize_test_results(repl::AbstractREPL=Base.active_repl, pkg::PackageSpec=current_pkg()) -> Nothing
+    result_pkgs() -> Vector{PackageSpec}
+
+The packages whose results the viewer should gather: those of the latest run, so that a
+selection spanning several packages of a workspace is shown as one list, falling back to
+every package of the active environment when nothing ran in this session yet.
+"""
+function result_pkgs()
+    tests = LATEST_EVAL[]
+    return if isnothing(tests) || isempty(tests)
+        current_pkgs()
+    else
+        unique_pkgs(test.pkg for test in tests)
+    end
+end
+
+"""
+    visualize_test_results(repl::AbstractREPL=Base.active_repl, pkgs::AbstractVector{PackageSpec}=result_pkgs()) -> Nothing
 
 Interactive visualization of test failures and errors using fzf interface.
 
 Creates a loop-based interface for browsing test failures and errors from the most recent
 test execution. Provides syntax-highlighted previews of stack traces and allows editing
 of test files directly from the interface.
+
+The results of every package of `pkgs` are shown in a single list, each entry prefixed by
+the package it comes from when there is more than one, and its stacktrace explored against
+that very package.
 """
 function visualize_test_results(
-    repl::AbstractREPL=Base.active_repl, pkg::PackageSpec=current_pkg()
+    repl::AbstractREPL=Base.active_repl, pkgs::AbstractVector{PackageSpec}=result_pkgs()
 )
     editor_cmd = join(editor(), ' ')
-    entries = read_results(pkg)
-    if isnothing(entries)
+    entries, entry_pkgs = collect_results(pkgs)
+    if isempty(entries)
         @warn "No results found, results will not be available until you get failures or errors from your tests."
         return nothing
     end
@@ -93,12 +113,50 @@ function visualize_test_results(
         # The index comes first so that it survives the newlines the preview field holds:
         # `fzf` separates the records it prints with a newline of its own, which would make
         # any later field ambiguous. Only the first selection is inspected.
-        entry = entries[Base.parse(Int, first(split(picked_val, separator())))]
+        index = Base.parse(Int, first(split(picked_val, separator())))
+        entry = entries[index]
 
         # Fail tests don't have a stacktrace to explore.
         isnothing(entry.trace) && continue
-        visualize_stacktrace(entry.trace; title=entry.list_view, pkg, terminal, editor_cmd)
+        visualize_stacktrace(
+            entry.trace; title=entry.list_view, pkg=entry_pkgs[index], terminal, editor_cmd
+        )
     end
+end
+
+"""
+    collect_results(pkgs) -> (Vector{TestResultEntry}, Vector{PackageSpec})
+
+Read back the results saved for every package of `pkgs`, together with the package each
+entry came from.
+
+When more than one package has results to show, every entry is prefixed with the name of its
+package: a failure of `PkgA` and a failure of `PkgB` otherwise look alike in the picker.
+"""
+function collect_results(pkgs::AbstractVector{PackageSpec})
+    entries = TestResultEntry[]
+    entry_pkgs = PackageSpec[]
+    qualify = !isone(length(pkgs))
+    for pkg in pkgs
+        pkg_entries = read_results(pkg)
+        isnothing(pkg_entries) && continue
+        for entry in pkg_entries
+            push!(entries, qualify ? qualified_entry(entry, pkg::PackageSpec) : entry)
+            push!(entry_pkgs, pkg)
+        end
+    end
+    return entries, entry_pkgs
+end
+
+"Same entry, shown under the name of the package it belongs to."
+function qualified_entry(entry::TestResultEntry, pkg::PackageSpec)
+    return TestResultEntry(
+        "$(pkg.name) | $(entry.list_view)",
+        entry.source,
+        entry.preview,
+        entry.context,
+        entry.trace,
+    )
 end
 
 """

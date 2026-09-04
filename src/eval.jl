@@ -37,13 +37,15 @@ function prepend_ex(ex, new_line::Expr)
 end
 
 """
-    eval_in_module(eval_test::EvalTest, pkg::PackageSpec) -> Union{Nothing,TestSetException,TestPickerTestSetException}
+    eval_in_module(eval_test::EvalTest) -> Union{Nothing,TestSetException,TestPickerTestSetException}
 
 Execute a test block in an isolated module with the appropriate test environment activated.
 
 This function provides the core test execution functionality for TestPicker. It creates
-a temporary module, activates the package's test environment, and evaluates the test
-code in isolation to prevent interference between different test runs.
+a temporary module, activates the test environment of the package the test belongs to, and
+evaluates the test code in isolation to prevent interference between different test runs.
+The environment that was active on entry is restored afterwards, whatever it was: with a
+workspace that is typically the workspace project itself rather than any of its packages.
 
 Returns `nothing` when all tests pass successfully. Otherwise returns a `TestSetException`
 (bare, unwrapped test code) or a [`TestPickerTestSetException`](@ref) (test code wrapped in
@@ -51,10 +53,12 @@ a [`TestPickerTestSet`](@ref), as done by [`run_testfile`](@ref) and [`testblock
 when test failures are encountered.
 """
 function eval_in_module(
-    (; ex, info)::EvalTest, pkg::PackageSpec
+    (; ex, info, pkg)::EvalTest
 )::Union{Nothing,TestSetException,TestPickerTestSetException}
     (; filename, label, line) = info
     mod = gensym(pkg.name)
+    # Whatever we activate along the way, this is what the session gets back at the end.
+    active_project = Base.active_project()
     revise_ex = quote
         import TestPicker: Revise
         Revise.revise()
@@ -70,9 +74,19 @@ function eval_in_module(
             Pkg.activate($(TESTENV_CACHE[pkg]); io=devnull)
         end
     else
+        # `TestEnv` builds the test environment out of the *active* project, so we first
+        # activate the project of the package itself. This is what makes a package of a
+        # workspace work: the active project may well be the workspace root, which holds
+        # none of the dependencies of its members.
+        activate_pkg_expr = if isnothing(pkg.path)
+            nothing
+        else
+            :(Pkg.activate($(pkg.path); io=devnull))
+        end
         quote
             $(disable_precompilation_expr)
             import TestPicker: Pkg, TestEnv, TESTENV_CACHE
+            $(activate_pkg_expr)
             TESTENV_CACHE[$pkg] = TestEnv.activate($(pkg.name))
         end
     end
@@ -88,7 +102,7 @@ function eval_in_module(
     top_ex = Expr(:toplevel, testenv_expr, module_expr)
 
     env_return = quote
-        Pkg.activate($(pkg.path); io=devnull)
+        Base.set_active_project($(active_project))
         $(restore_precompilation_state)
     end
     clean_module = quote
@@ -113,7 +127,7 @@ function eval_in_module(
     if !isempty(label)
         @info "Executing testblock $(label) from $(filename):$(line)"
     else
-        @info "Executing test file $(filename)"
+        @info "Executing test file $(filename) in the test environment of $(pkg.name)"
     end
     @debug "Evaluating code block" top_ex
     result = nothing

@@ -56,7 +56,8 @@ struct TestModeCompletionProvider <: REPL.LineEdit.CompletionProvider end
 """
     complete_line(::TestModeCompletionProvider, s::LineEdit.PromptState; hint::Bool=false)
 
-Provide completions based on available test file names (without paths).
+Provide completions based on available test file names (without paths), plus the
+package-qualified names the pickers show when the active environment is a workspace.
 """
 function REPL.complete_line(
     ::TestModeCompletionProvider, s::LineEdit.PromptState; hint::Bool=false
@@ -70,11 +71,16 @@ function REPL.complete_line(
 
     # Try to get test files - if it fails, return empty completions
     try
-        pkg = current_pkg()
-        _, files = get_testfiles(pkg)
+        files = get_testfiles(current_pkgs())
 
-        # Extract just the base file names (without path, but keep .jl extension)
-        file_names = unique([basename(f) for f in files])
+        # Extract just the base file names (without path, but keep .jl extension), and the
+        # labels themselves when they say more, i.e. when they name a package of a workspace.
+        file_names = String[]
+        for file in files
+            push!(file_names, basename(file.name))
+            file.label == file.name || push!(file_names, file.label)
+        end
+        unique!(file_names)
 
         # Filter completions based on partial input
         completions = filter(name -> startswith(name, partial), file_names)
@@ -217,12 +223,13 @@ function test_mode_do_cmd(repl::AbstractREPL, input::String)
     elseif test_type == TestsetQuery
         fzf_testblock(INTERFACES, inputs...; interactive=true)
     elseif test_type == LatestEval
-        pkg = current_pkg()
-        clean_results_file(pkg)
-        refreshed = filter(!isnothing, refresh_stale_test.(inputs, Ref(pkg)))
+        # Each test knows its own package, which need not be a single one when the latest
+        # selection spanned several packages of a workspace.
+        foreach(clean_results_file, unique_pkgs(test.pkg for test in inputs))
+        refreshed = filter(!isnothing, refresh_stale_test.(inputs))
         LATEST_EVAL[] = refreshed
         for test in refreshed
-            eval_in_module(test, pkg)
+            eval_in_module(test)
         end
     elseif test_type == TestModeDocs
         print_test_docs()

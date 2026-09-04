@@ -5,6 +5,8 @@ const HELP_TEXT = Markdown.md"""
 - `test> myfile` → Open fuzzy file picker with "myfile" as initial query
   - Use Tab for autocomplete on file names
   - Select file(s) in fzf and press Enter to run
+  - In a workspace, every package is searched and files show up as `MyPackage/myfile.jl`,
+    so a query can name the package it is after
 
 ## Test Block Selection
 - `test> file:testset` → Open fuzzy testset picker

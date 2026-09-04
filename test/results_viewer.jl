@@ -1,4 +1,5 @@
 using Test
+using Pkg
 using TestPicker
 using TestPicker: TestPickerTestSet
 using JSON
@@ -237,6 +238,10 @@ end
     @test TestPicker.RESULT_PATH() == path
     @test all(==(path), fetch.([Threads.@spawn TestPicker.RESULT_PATH() for _ in 1:8]))
     @test startswith(basename(path), "TestPicker_")
-    @test dirname(TestPicker.pkg_results_path(TestPicker.current_pkg())) == path
+    # `current_pkg` reads the active environment, which under `Pkg.test` is the sandbox
+    # test environment rather than the package itself.
+    Pkg.activate(pkgdir(TestPicker)) do
+        @test dirname(TestPicker.pkg_results_path(TestPicker.current_pkg())) == path
+    end
 end
 

@@ -34,10 +34,10 @@
             # File matching operations
             get_matching_files("test", testfiles)
 
-            # Build info to syntax
+            # Build the records of the test block picker
             if !isempty(testfiles)
-                matched_files = [first(testfiles)]
-                build_info_to_syntax([interface], root, matched_files)
+                matched_files = [TestFile(pkg_spec, root, first(testfiles))]
+                build_testblocks([interface], matched_files, root)
             end
 
             # Precompile Cmd and pipeline construction (without executing)

@@ -124,47 +124,83 @@ function get_matching_files(
 end
 
 """
-    build_info_to_syntax(interfaces, root, matched_files) -> (Dict{TestBlockInfo,SyntaxBlock}, Dict{String,TestBlockInfo})
+    get_matching_files(file_query::AbstractString, files::AbstractVector{TestFile}) -> Vector{TestFile}
 
-Parse matched files and build mapping structures for test block selection and display.
-
-Extracts all test blocks from the provided files and creates two mappings:
-1. From test block metadata to syntax information
-2. From human-readable display strings (for fzf) to test block metadata
+Filter [`TestFile`](@ref)s on their label, i.e. on the very text the picker shows, so that
+in a workspace a query can name the package it is after (`PkgA/runtests`) as well as the
+file.
 """
-function build_info_to_syntax(
-    interfaces::Vector{<:TestBlockInterface},
-    root::AbstractString,
-    matched_files::AbstractVector{<:AbstractString},
-)
-    isempty(matched_files) &&
-        return Dict{TestBlockInfo,SyntaxBlock}(), Dict{String,TestBlockInfo}()
-    info_to_syntax = mapreduce(merge, matched_files) do file
-        # Keep track of file name length for padding.
-        syntax_blocks = get_syntax_blocks(interfaces, joinpath(root, file))
-        Dict{TestBlockInfo,SyntaxBlock}(
-            map(syntax_blocks) do syntax_block
-                TestBlockInfo(syntax_block, file) => syntax_block
-            end,
-        )
-    end
-    # None of the matched files contained any recognized test block.
-    isempty(info_to_syntax) && return info_to_syntax, Dict{String,TestBlockInfo}()
-    # We estimate the max length to perform some padding.
-    max_label_length = maximum(length ∘ label, keys(info_to_syntax))
-    max_filename_length = maximum(length ∘ file_name, keys(info_to_syntax))
-    # We create a new mapping with human readable lines for fzf.
-    display_to_info = Dict{String,TestBlockInfo}(
-        map(collect(keys(info_to_syntax))) do (; label, file_name, line_start, line_end)
-            visible_text = "$(rpad(label, max_label_length + 2)) | $(lpad(file_name,  max_filename_length + 2)):$(line_start)-$(line_end)"
-            join([visible_text, file_name, line_start, line_end], separator())
-        end .=> keys(info_to_syntax),
-    )
-    return info_to_syntax, display_to_info
+function get_matching_files(file_query::AbstractString, files::AbstractVector{TestFile})
+    by_label = Dict(file.label => file for file in files)
+    labels = get_matching_files(file_query, [file.label for file in files])
+    return [by_label[label] for label in labels]
 end
 
 """
-    pick_testblock(tabled_keys, testset_query, root; interactive::Bool=true) -> Vector{String}
+    TestBlockEntry
+
+One test block the picker can offer: the [`TestFile`](@ref) it was found in, its metadata
+and the parsed block itself.
+"""
+struct TestBlockEntry
+    file::TestFile
+    info::TestBlockInfo
+    block::SyntaxBlock
+end
+
+"""
+    build_testblocks(interfaces, files, root=common_root(files)) -> Dict{String,TestBlockEntry}
+
+Parse `files` and build the records the test block picker works with.
+
+Each test block found becomes one `separator()`-delimited record, mapped to the
+[`TestBlockEntry`](@ref) it stands for: the human readable text `fzf` displays and matches
+on, then the path to preview relative to `root` (the picker's working directory) and the
+line range of the block. Keying on the record is what keeps two blocks apart when they only
+differ by the package they come from, as happens in a workspace.
+"""
+function build_testblocks(
+    interfaces::Vector{<:TestBlockInterface},
+    files::AbstractVector{TestFile},
+    root::AbstractString=common_root(files),
+)
+    entries = mapreduce(vcat, files; init=TestBlockEntry[]) do file
+        map(get_syntax_blocks(interfaces, abspath(file))) do syntax_block
+            TestBlockEntry(file, TestBlockInfo(syntax_block, file.name), syntax_block)
+        end
+    end
+    # None of the matched files contained any recognized test block.
+    isempty(entries) && return Dict{String,TestBlockEntry}()
+    # We estimate the max length to perform some padding.
+    max_label_length = maximum(entry -> length(entry.info.label), entries)
+    max_filename_length = maximum(entry -> length(entry.file.label), entries)
+    return Dict(
+        map(entries) do entry
+            fzf_record(entry, root, max_label_length, max_filename_length) => entry
+        end,
+    )
+end
+
+"""
+    fzf_record(entry::TestBlockEntry, root, max_label_length, max_filename_length) -> String
+
+The `separator()`-delimited record the test block picker reads on its stdin: the visible
+text, then the path to preview relative to `root` and the line range to preview.
+"""
+function fzf_record(
+    entry::TestBlockEntry,
+    root::AbstractString,
+    max_label_length::Int,
+    max_filename_length::Int,
+)
+    (; line_start, line_end) = entry.info
+    visible_text = "$(rpad(entry.info.label, max_label_length + 2)) | $(lpad(entry.file.label,  max_filename_length + 2)):$(line_start)-$(line_end)"
+    path = relpath(abspath(entry.file), root)
+    return join([visible_text, path, line_start, line_end], separator())
+end
+
+"""
+    pick_testblock(entries, testset_query, root; interactive::Bool=true) -> Vector{String}
 
 Select test blocks to execute based on a fuzzy search query.
 
@@ -175,20 +211,19 @@ test code with syntax highlighting.
 If `interactive=false`, uses fzf's filter mode to non-interactively return all matching test blocks.
 """
 function pick_testblock(
-    tabled_keys::Dict{String,TestBlockInfo},
+    entries::Dict{String,TestBlockEntry},
     testset_query::AbstractString,
     root::AbstractString;
-    interactive::Bool = true,
+    interactive::Bool=true,
 )
     args = ["--filter", testset_query, "-d", "$(separator())", "--nth", "1"]
-    cmd = Cmd(`$(fzf()) $(args)`; ignorestatus = true, dir = root)
+    cmd = Cmd(`$(fzf()) $(args)`; ignorestatus=true, dir=root)
     # We do a dry lookup to see what results we get.
-    filtered_list =
-        readlines(pipeline(cmd; stdin = IOBuffer(join(keys(tabled_keys), '\n'))))
+    filtered_list = readlines(pipeline(cmd; stdin=IOBuffer(join(keys(entries), '\n'))))
     if !interactive || isone(length(filtered_list))
         # Non-interactive mode: use fzf --filter to get matching test blocks
         args = ["--filter", testset_query, "-d", "$(separator())", "--nth", "1"]
-        cmd = Cmd(`$(fzf()) $(args)`; ignorestatus = true, dir = root)
+        cmd = Cmd(`$(fzf()) $(args)`; ignorestatus=true, dir=root)
         return filtered_list
     end
 
@@ -210,29 +245,26 @@ function pick_testblock(
         "--query", # Initial query on the testset names.
         testset_query,
     ]
-    cmd = Cmd(`$(fzf()) $(args)`; ignorestatus = true, dir = root)
-    return readlines(pipeline(cmd; stdin = IOBuffer(join(keys(tabled_keys), '\n'))))
+    cmd = Cmd(`$(fzf()) $(args)`; ignorestatus=true, dir=root)
+    return readlines(pipeline(cmd; stdin=IOBuffer(join(keys(entries), '\n'))))
 end
 
 """
-    build_eval_test(blockinfo::TestBlockInfo, syntax_block::SyntaxBlock, pkg::PackageSpec) -> EvalTest
+    build_eval_test(entry::TestBlockEntry) -> EvalTest
 
 Build an executable [`EvalTest`](@ref) from a located test block.
 
 Wraps the block in a `TestPickerTestSet`, prepends any preamble required by its
-interface, and records a CRC32c checksum of the source file's current contents (used by
-[`refresh_stale_test`](@ref) to detect edits before a rerun).
+interface, carries over the package the block belongs to (so that a rerun still knows which
+test environment to activate) and records a CRC32c checksum of the source file's current
+contents (used by [`refresh_stale_test`](@ref) to detect edits before a rerun).
 """
-function build_eval_test(
-    blockinfo::TestBlockInfo,
-    syntax_block::SyntaxBlock,
-    pkg::PackageSpec,
-)::EvalTest
-    (; label, file_name, line_start) = blockinfo
+function build_eval_test((; file, info, block)::TestBlockEntry)::EvalTest
+    (; label, file_name, line_start) = info
+    (; pkg, root) = file
     test_info = TestInfo(file_name, label, line_start)
-    (; preamble, testblock, interface) = syntax_block
-    root = get_test_dir_from_pkg(pkg)
-    block_expr = expr_transform(interface, Expr(testblock), blockinfo, root)
+    (; preamble, testblock, interface) = block
+    block_expr = expr_transform(interface, Expr(testblock), info, root)
     tried_testset = quote
         try
             @testset TestPickerTestSet $(label) begin
@@ -246,34 +278,27 @@ function build_eval_test(
     end
     preamble_statements = prepend_preamble_statements(interface, Expr.(preamble))
     ex = Expr(:block, preamble_statements..., tried_testset)
-    content_hash = crc32c(read(joinpath(root, file_name)))
-    return EvalTest(ex, test_info, content_hash)
+    content_hash = crc32c(read(abspath(file)))
+    return EvalTest(ex, test_info, pkg, content_hash)
 end
 
 """
-    testblock_list(choices, info_to_syntax, display_to_info, pkg) -> Vector{EvalTest}
+    testblock_list(choices, entries) -> Vector{EvalTest}
 
 Convert user-selected test block choices into executable test objects.
 
-Takes the selected display strings from fzf and converts them into `EvalTest` objects
-that can be evaluated. Each test is wrapped in a try-catch block to handle test failures
-gracefully and save results.
+Takes the records `fzf` echoed back and converts the [`TestBlockEntry`](@ref) each of them
+stands for into an `EvalTest` that can be evaluated. Each test is wrapped in a try-catch
+block to handle test failures gracefully and save results.
 """
 function testblock_list(
-    choices::Vector{<:AbstractString},
-    info_to_syntax::Dict{TestBlockInfo,SyntaxBlock},
-    display_to_info::Dict{String,TestBlockInfo},
-    pkg::PackageSpec,
+    choices::Vector{<:AbstractString}, entries::Dict{String,TestBlockEntry}
 )::Vector{EvalTest}
-    map(choices) do choice
-        blockinfo = display_to_info[choice]
-        syntax_block = info_to_syntax[blockinfo]
-        build_eval_test(blockinfo, syntax_block, pkg)
-    end
+    return map(choice -> build_eval_test(entries[choice]), choices)
 end
 
 """
-    refresh_stale_test(test::EvalTest, pkg::PackageSpec) -> Union{Nothing,EvalTest}
+    refresh_stale_test(test::EvalTest) -> Union{Nothing,EvalTest}
 
 Re-locate a test block's source before rerunning it, if the file changed since capture.
 
@@ -283,7 +308,7 @@ disk. This compares a CRC32c checksum of the file's current contents against the
 recorded on `test` (a content hash, rather than the modification time, so a real edit is
 never missed due to coarse mtime resolution or a save that happens to restore the
 original mtime). If the checksum changed, the whole file is re-parsed from scratch via
-[`build_info_to_syntax`](@ref) — the same routine used for the original selection, so
+[`build_testblocks`](@ref) — the same routine used for the original selection, so
 every block's preamble is recomputed exactly as it would be for a fresh pick — and the
 block whose label aligns with `test`'s is looked up in the result.
 
@@ -294,11 +319,12 @@ label is now ambiguous (matches more than one block), there is no reliable way t
 what to rerun: a warning is emitted and `nothing` is returned, so the stale test is
 dropped rather than silently re-running outdated code.
 """
-function refresh_stale_test(test::EvalTest, pkg::PackageSpec)::Union{Nothing,EvalTest}
-    (; info) = test
+function refresh_stale_test(test::EvalTest)::Union{Nothing,EvalTest}
+    (; info, pkg) = test
     isempty(info.label) && return test
     root = get_test_dir_from_pkg(pkg)
-    path = joinpath(root, info.filename)
+    file = TestFile(pkg, root, info.filename)
+    path = abspath(file)
     if !isfile(path)
         @warn "File $(info.filename) could not be found anymore; dropping test block \"$(info.label)\" from the rerun."
         return nothing
@@ -307,8 +333,8 @@ function refresh_stale_test(test::EvalTest, pkg::PackageSpec)::Union{Nothing,Eva
     current_hash == test.content_hash && return test
 
     @info "File $(info.filename) was modified since test block \"$(info.label)\" was captured; refetching it from scratch."
-    info_to_syntax, _ = build_info_to_syntax(INTERFACES, root, [info.filename])
-    matches = filter(((blockinfo, _),) -> blockinfo.label == info.label, info_to_syntax)
+    entries = build_testblocks(INTERFACES, [file])
+    matches = filter(((_, entry),) -> entry.info.label == info.label, entries)
     if isempty(matches)
         @warn "Test block \"$(info.label)\" could not be found anymore in $(info.filename); it may have been renamed or removed. Dropping it from the rerun."
         return nothing
@@ -316,12 +342,11 @@ function refresh_stale_test(test::EvalTest, pkg::PackageSpec)::Union{Nothing,Eva
         @warn "Test block \"$(info.label)\" now matches $(length(matches)) blocks in $(info.filename); cannot tell which one to rerun. Dropping it from the rerun."
         return nothing
     end
-    blockinfo, syntax_block = only(matches)
-    return build_eval_test(blockinfo, syntax_block, pkg)
+    return build_eval_test(only(values(matches)))
 end
 
 """
-    fzf_testblock_from_files(interfaces, matched_files, fuzzy_testset, pkg, root; interactive::Bool=true) -> Nothing
+    fzf_testblock_from_files(interfaces, matched_files, fuzzy_testset; interactive::Bool=true) -> Nothing
 
 Test block selection and execution from a list of matched files.
 
@@ -330,25 +355,27 @@ from those files based on `fuzzy_testset` query.
 
 If `interactive=false`, uses fzf's filter mode to non-interactively select and run all
 matching test blocks.
+
+The files may well come from several packages of a workspace, in which case each selected
+block is run in the test environment of the package it belongs to.
 """
 function fzf_testblock_from_files(
     interfaces::Vector{<:TestBlockInterface},
-    matched_files::AbstractVector{<:AbstractString},
-    fuzzy_testset::AbstractString,
-    pkg::PackageSpec,
-    root::AbstractString;
-    interactive::Bool = true,
+    matched_files::AbstractVector{TestFile},
+    fuzzy_testset::AbstractString;
+    interactive::Bool=true,
 )
     # We create  the collection of testsets based on the list of files.
-    info_to_syntax, display_to_info = build_info_to_syntax(interfaces, root, matched_files)
+    root = common_root(matched_files)
+    entries = build_testblocks(interfaces, matched_files, root)
 
-    choices = pick_testblock(display_to_info, fuzzy_testset, root; interactive)
+    choices = pick_testblock(entries, fuzzy_testset, root; interactive)
     if !isempty(choices)
-        tests = testblock_list(choices, info_to_syntax, display_to_info, pkg)
-        clean_results_file(pkg)
+        tests = testblock_list(choices, entries)
+        foreach(clean_results_file, unique_pkgs(test.pkg for test in tests))
         LATEST_EVAL[] = tests
         map(tests) do test
-            result = eval_in_module(test, pkg)
+            result = eval_in_module(test)
             EvalResult(isnothing(result), test.info, result)
         end
     end
@@ -370,18 +397,10 @@ function fzf_testblock(
     interfaces::Vector{<:TestBlockInterface},
     fuzzy_file::AbstractString,
     fuzzy_testset::AbstractString;
-    interactive::Bool = true,
+    interactive::Bool=true,
 )
-    pkg = current_pkg()
-    root, testfiles = get_testfiles(pkg)
-    # We fetch all valid test files.
+    # We fetch all valid test files, of every package of the workspace if there is one.
+    testfiles = get_testfiles(current_pkgs())
     matched_files = get_matching_files(fuzzy_file, testfiles)
-    fzf_testblock_from_files(
-        interfaces,
-        matched_files,
-        fuzzy_testset,
-        pkg,
-        root;
-        interactive,
-    )
+    fzf_testblock_from_files(interfaces, matched_files, fuzzy_testset; interactive)
 end

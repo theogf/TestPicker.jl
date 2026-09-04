@@ -1,7 +1,9 @@
 [deps]
 JSON = "682c06a0-de6a-54ab-a142-c8b1cf79cde6"
 JuliaSyntax = "70703baa-626e-46a2-a12c-08ffd08c73b4"
+Markdown = "d6f4376e-aef5-505a-96c1-9c027394607a"
 Pkg = "44cfe95a-1eb2-52ea-b672-e2afdf69b78f"
+REPL = "3fa0cd96-eef1-5676-8a61-b3b8758bbffb"
 SafeTestsets = "1bc83da4-3b8d-516f-aca4-4fe02f6d838f"
 TerminalRegressionTests = "98bfdc55-cc95-5876-a49a-74609291cbe0"
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
