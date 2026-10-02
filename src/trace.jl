@@ -144,7 +144,11 @@ end
 "Resolve a raw backtrace into [`TraceFrame`](@ref)s."
 function trace_frames(backtrace)
     isnothing(backtrace) && return TraceFrame[]
-    frames = stacktrace(backtrace)
+    return trace_frames(stacktrace(backtrace))
+end
+
+# The REPL stores the exception stack of `err` with its backtraces already resolved.
+function trace_frames(frames::AbstractVector{StackTraces.StackFrame})
     return [trace_frame(i, frame) for (i, frame) in enumerate(frames)]
 end
 

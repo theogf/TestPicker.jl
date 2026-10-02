@@ -16,6 +16,9 @@ using TestPicker: trace_error, last_exception, inspect_error
 
     exception, backtrace = stack[1]
     @test TestPicker.trace_error(exception, backtrace).frames == trace.frames
+    # The REPL's `err` holds backtraces that are already resolved into `StackFrame`s.
+    resolved = Base.ExceptionStack([(; exception, backtrace=stacktrace(backtrace))])
+    @test TestPicker.trace_error(resolved).frames == trace.frames
     # Without a backtrace there is nothing to explore, only a message.
     @test isempty(TestPicker.trace_error(exception, nothing).frames)
 end
