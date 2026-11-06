@@ -63,10 +63,19 @@ function REPL.complete_line(
     ::TestModeCompletionProvider, s::LineEdit.PromptState; hint::Bool=false
 )
     partial = String(take!(copy(LineEdit.buffer(s))))
+    # Julia ≥ 1.12 expects `NamedCompletion`s and the replaced region as a `Pair` of buffer
+    # positions; some callers (e.g. `edit_move_right`) don't convert the legacy forms.
+    @static if isdefined(LineEdit, :NamedCompletion)
+        reg = (position(s) - sizeof(partial)) => position(s)
+        wrap = names -> map(LineEdit.NamedCompletion, names)
+    else
+        reg = partial
+        wrap = identity
+    end
 
     # Don't complete if ':' is present (testset query mode)
     if contains(partial, ':')
-        return (String[], partial, false)
+        return (wrap(String[]), reg, false)
     end
 
     # Try to get test files - if it fails, return empty completions
@@ -85,10 +94,10 @@ function REPL.complete_line(
         # Filter completions based on partial input
         completions = filter(name -> startswith(name, partial), file_names)
 
-        return (completions, partial, !isempty(completions))
+        return (wrap(completions), reg, !isempty(completions))
     catch
         # If we can't get test files, return empty completions
-        return (String[], partial, false)
+        return (wrap(String[]), reg, false)
     end
 end
 
