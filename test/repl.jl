@@ -37,6 +37,17 @@ end
     )
 end
 
+@testset "Right arrow at end of line (Julia 1.12+ completion format)" begin
+    # `edit_move_right` reads the completion region and `NamedCompletion`s directly
+    # from `complete_line`, without converting the legacy `String` forms.
+    term = REPL.Terminals.TTYTerminal("dumb", IOBuffer(), IOBuffer(), IOBuffer())
+    p = LineEdit.Prompt("test> "; complete=TestModeCompletionProvider())
+    mi = LineEdit.init_state(term, LineEdit.ModalInterface([p]))
+    mi.current_mode = p
+    LineEdit.edit_insert(LineEdit.state(mi, p), "repl")
+    @test LineEdit.edit_move_right(mi) isa Bool
+end
+
 @testset "Identify query" begin
     @test identify_query("") == (TestFileQuery, ("", ""))
     TestPicker.LATEST_EVAL[] = nothing
