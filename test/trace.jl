@@ -25,7 +25,8 @@ exception_stack() =
     @test top.line > 0
     # Frames are rendered the way Julia prints them.
     @test startswith(top.text, " [1] throw_complex_domainerror(")
-    @test contains(top.text, "\n   @ Base.Math ./math.jl:$(top.line)")
+    # Julia ≥ 1.14 dropped the `./` prefix for Base files.
+    @test contains(top.text, Regex("\\n   @ Base\\.Math (\\./)?math\\.jl:$(top.line)"))
 
     # This file's own frame carries its real path, whatever Julia chose to print.
     ours = only(filter(f -> f.func == "boom", trace.frames))
